@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kick Sound Alerts</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/favicon.png">
+<meta name="description" content="Let your viewers play sounds on stream with channel points. Add one link to OBS and you're done.">
+<style>
+  :root {
+    --bg: #0e1012; --card: #171a1d; --card2: #1d2125; --line: #2a2f35; --text: #eceef0; --muted: #9ba4ae;
+    --accent: #53fc18; --accent-ink: #0a0c0d; --danger: #ff6464; --warn: #ffb547;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 0 16px 64px; }
+  a { color: var(--accent); }
+  h1, h2, h3 { line-height: 1.25; }
+  button, .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px;
+    background: #2a2f35; color: var(--text); border: 0; border-radius: 8px; padding: 8px 14px;
+    font: inherit; cursor: pointer; text-decoration: none; white-space: nowrap;
+  }
+  button:hover, .btn:hover { background: #353b42; }
+  button:disabled { opacity: .55; cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .primary { background: var(--accent); color: var(--accent-ink); font-weight: 650; }
+  .primary:hover { background: #72ff42; }
+  .ghost { background: transparent; color: var(--muted); }
+  .ghost:hover { background: #22272c; color: var(--text); }
+  .danger { color: var(--danger); }
+  .small { min-height: 32px; padding: 5px 10px; font-size: 14px; }
+  input[type=text], input[type=number], select {
+    width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; padding: 8px 10px; font: inherit; min-height: 38px;
+  }
+  input[type=range] { accent-color: var(--accent); width: 100%; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .muted { color: var(--muted); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* Landing */
+  .hero { padding: 72px 0 32px; text-align: center; }
+  .hero h1 { font-size: clamp(28px, 6vw, 42px); margin: 0 0 12px; letter-spacing: -.02em; }
+  .hero p { color: var(--muted); font-size: 17px; margin: 0 auto 28px; max-width: 520px; }
+  .hero .primary { font-size: 17px; padding: 12px 24px; min-height: 48px; }
+  .how { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 40px; }
+  .how div { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; text-align: left; }
+  .how b { display: block; margin-bottom: 4px; }
+  .how span { color: var(--muted); font-size: 14px; }
+  .how i { font-style: normal; color: var(--accent); font-weight: 700; margin-right: 6px; }
+
+  /* Dashboard */
+  header.top { display: flex; align-items: center; gap: 10px; padding: 16px 0; border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+  header.top img { width: 32px; height: 32px; border-radius: 50%; background: var(--card2); object-fit: cover; }
+  header.top .name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .brand { font-weight: 700; color: var(--accent); margin-right: 8px; }
+  section.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; margin-bottom: 16px; }
+  section.card > h2 { font-size: 17px; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  section.card > p.lead { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+  .banner { border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .banner span { flex: 1; min-width: 200px; }
+  .banner.warn { background: rgba(255,181,71,.12); border: 1px solid rgba(255,181,71,.35); }
+  .banner.err { background: rgba(255,100,100,.12); border: 1px solid rgba(255,100,100,.35); }
+
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; padding: 2px 10px; border-radius: 99px; }
+  .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .status.on { color: var(--accent); background: rgba(83,252,24,.12); }
+  .status.off { color: var(--warn); background: rgba(255,181,71,.12); }
+
+  .linkbox { display: flex; gap: 8px; margin: 8px 0; }
+  .linkbox code { flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  ol.steps { margin: 10px 0 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
+  ol.steps li { margin-bottom: 3px; }
+  ol.steps b { color: var(--text); font-weight: 600; }
+
+  .alerts { display: flex; flex-direction: column; gap: 8px; }
+  .alert { background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; grid-template-columns: 1fr auto; gap: 10px 12px; align-items: center; }
+  .alert.off { opacity: .6; }
+  .alert .title { font-weight: 650; overflow-wrap: anywhere; }
+  .alert .meta { font-size: 13px; color: var(--muted); }
+  .alert .vol { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .alert .vol input { max-width: 260px; }
+  .alert .edit { grid-column: 1 / -1; display: grid; grid-template-columns: 2fr 1fr auto auto; gap: 8px; align-items: end; }
+  .empty { text-align: center; color: var(--muted); padding: 22px 12px; border: 1px dashed var(--line); border-radius: 10px; }
+
+  form.add { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 2fr 1fr 2fr auto; gap: 10px; align-items: end; }
+  .file-pick { position: relative; }
+  .file-pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .file-pick .btn { width: 100%; justify-content: flex-start; overflow: hidden; text-overflow: ellipsis; background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
+  .file-pick.has .btn { color: var(--text); }
+  .file-pick input:focus-visible + .btn { outline: 2px solid var(--accent); outline-offset: 2px; }
+  details.link-existing { margin-top: 12px; }
+  details.link-existing summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  details.link-existing form { grid-template-columns: 2fr 2fr auto; }
+
+  ul.log { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+  ul.log li { padding: 6px 0; border-top: 1px solid var(--line); display: flex; gap: 10px; }
+  ul.log li:first-child { border-top: 0; }
+  ul.log time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+
+  .settings { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: end; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 32px; }
+
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2d3339; color: var(--text); padding: 10px 16px; border-radius: 10px; max-width: calc(100% - 32px); box-shadow: 0 6px 24px rgba(0,0,0,.4); z-index: 10; }
+  #toast.err { background: #5a2222; }
+
+  @media (max-width: 640px) {
+    .how { grid-template-columns: 1fr; }
+    form.add, details.link-existing form, .alert .edit, .settings { grid-template-columns: 1fr; }
+    .alert { grid-template-columns: 1fr; }
+    .hero { padding-top: 48px; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- Logged out -->
+  <div id="landing" hidden>
+    <div class="hero">
+      <h1>Let your viewers play sounds<br>on stream with channel points</h1>
+      <p>Create a reward, upload a sound, paste the link into OBS. Nothing to download, nothing to configure.</p>
+      <a class="btn primary" href="/auth/login">Log in with Kick</a>
+    </div>
+    <div class="how">
+      <div><b><i>1</i>Log in</b><span>Connect your Kick account. Your password never reaches us.</span></div>
+      <div><b><i>2</i>Add a sound</b><span>Pick a reward name, cost and sound. The reward is created on Kick automatically.</span></div>
+      <div><b><i>3</i>Add to OBS</b><span>Add your personal link to OBS as a browser source. Done.</span></div>
+    </div>
+  </div>
+
+  <!-- Logged in -->
+  <div id="app" hidden>
+    <header class="top">
+      <span class="brand">🔊</span>
+      <img id="avatar" alt="">
+      <span class="name" id="userName"></span>
+      <button class="ghost small" id="logoutBtn">Log out</button>
+    </header>
+
+    <div id="bannerRelogin" class="banner err" hidden>
+      <span>Your Kick connection has expired. Log in again to keep your sounds working.</span>
+      <a class="btn primary small" href="/auth/login">Log in again</a>
+    </div>
+    <div id="bannerRepair" class="banner warn" hidden>
+      <span>We're not receiving reward notifications from Kick. Sounds won't play when rewards are redeemed.</span>
+      <button class="primary small" id="repairBtn">Repair</button>
+    </div>
+
+    <section class="card">
+      <h2>Your OBS link <span id="obsStatus" class="status off">OBS not connected</span></h2>
+      <p class="lead">This link is personal. Don't share it with anyone.</p>
+      <div class="linkbox">
+        <code id="overlayUrl">••••••••</code>
+        <button class="primary" id="copyOverlay">Copy</button>
+      </div>
+      <ol class="steps">
+        <li>In OBS, click <b>+</b> under <b>Sources</b> and choose <b>Browser</b>.</li>
+        <li>Paste the link into the <b>URL</b> field and click <b>OK</b>.</li>
+        <li>Tick <b>Control audio via OBS</b> to see the sound in the OBS mixer.</li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h2>Sound rewards</h2>
+      <p class="lead">Rewards you add here are created on your Kick channel automatically. When a viewer redeems one, its sound plays in OBS.</p>
+      <div class="alerts" id="alerts"></div>
+
+      <form class="add" id="addForm" autocomplete="off">
+        <div><label for="newTitle">Reward name</label><input id="newTitle" type="text" maxlength="50" placeholder="e.g. sound1" required></div>
+        <div><label for="newCost">Cost</label><input id="newCost" type="number" min="1" step="1" value="100" required></div>
+        <div>
+          <label for="newSound">Sound file</label>
+          <div class="file-pick" id="newSoundPick">
+            <input id="newSound" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.webm,audio/*" required>
+            <span class="btn">Choose file…</span>
+          </div>
+        </div>
+        <button class="primary" type="submit" id="addBtn">Add</button>
+      </form>
+
+      <details class="link-existing" id="linkDetails">
+        <summary>Add a sound to a reward that already exists on Kick</summary>
+        <form class="add" id="linkForm" autocomplete="off">
+          <div><label for="linkReward">Kick reward</label><select id="linkReward" required><option value="">Loading…</option></select></div>
+          <div>
+            <label for="linkSound">Sound file</label>
+            <div class="file-pick" id="linkSoundPick">
+              <input id="linkSound" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.webm,audio/*" required>
+              <span class="btn">Choose file…</span>
+            </div>
+          </div>
+          <button class="primary" type="submit" id="linkBtn">Attach</button>
+        </form>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>Recent activity</h2>
+      <ul class="log" id="log"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Settings</h2>
+      <div class="settings">
+        <div>
+          <label for="masterVolume">Master volume: <span id="masterVal"></span></label>
+          <input id="masterVolume" type="range" min="0" max="1" step="0.05">
+        </div>
+        <div class="row">
+          <button class="small" id="regenBtn">Regenerate OBS link</button>
+          <button class="small ghost danger" id="deleteAccountBtn">Delete account</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer>Designed and built by Emre Sarıkaya.</footer>
+</main>
+<div id="toast" hidden role="status"></div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let me = null;
+  let alertsKey = '';
+  let editingId = null;
+  let draggingVolume = false;
+  let previewAudio = null;
+
+  function toast(msg, err) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = err ? 'err' : '';
+    t.hidden = false;
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => (t.hidden = true), err ? 6000 : 3000);
+  }
+
+  async function api(path, method = 'GET', body) {
+    const res = await fetch(path, {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.status === 401 && !json.relogin) { showLanding(); throw new Error(json.error || 'Login required'); }
+    if (!res.ok) throw new Error(json.error || 'Something went wrong');
+    return json;
+  }
+
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function readFile(file, maxMb) {
+    return new Promise((ok, fail) => {
+      if (file.size > maxMb * 1024 * 1024) return fail(new Error(`Sound file can be at most ${maxMb} MB`));
+      const r = new FileReader();
+      r.onload = () => ok({ name: file.name, data: String(r.result).split(',')[1] });
+      r.onerror = () => fail(new Error('Could not read the file'));
+      r.readAsDataURL(file);
+    });
+  }
+
+  async function busy(btn, fn) {
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '…';
+    try { await fn(); } catch (e) { toast(e.message, true); } finally { btn.disabled = false; btn.textContent = label; }
+  }
+
+  function bindFilePick(pickId) {
+    const wrap = $(pickId), input = wrap.querySelector('input'), label = wrap.querySelector('.btn');
+    input.addEventListener('change', () => {
+      const f = input.files[0];
+      wrap.classList.toggle('has', Boolean(f));
+      label.textContent = f ? f.name : 'Choose file…';
+    });
+    return () => { input.value = ''; wrap.classList.remove('has'); label.textContent = 'Choose file…'; };
+  }
+
+  function pickFile() {
+    return new Promise((resolve) => {
+      const i = document.createElement('input');
+      i.type = 'file';
+      i.accept = '.mp3,.wav,.ogg,.m4a,.aac,.webm,audio/*';
+      i.onchange = () => resolve(i.files[0] || null);
+      i.oncancel = () => resolve(null);
+      i.click();
+    });
+  }
+
+  function showLanding() {
+    $('landing').hidden = false;
+    $('app').hidden = true;
+  }
+
+  function render(state, force) {
+    me = state;
+    $('landing').hidden = true;
+    $('app').hidden = false;
+    $('userName').textContent = state.user.name;
+    if (state.user.avatar) $('avatar').src = state.user.avatar; else $('avatar').removeAttribute('src');
+    $('bannerRelogin').hidden = !state.needsRelogin;
+    $('bannerRepair').hidden = state.needsRelogin || state.subscribed;
+
+    const on = state.overlays > 0;
+    $('obsStatus').className = 'status ' + (on ? 'on' : 'off');
+    $('obsStatus').textContent = on ? 'OBS connected' : 'OBS not connected';
+    $('overlayUrl').textContent = state.overlayUrl.replace(state.overlayKey, '•'.repeat(12));
+
+    if (!draggingVolume) {
+      $('masterVolume').value = state.masterVolume;
+      $('masterVal').textContent = Math.round(state.masterVolume * 100) + '%';
+    }
+
+    $('log').innerHTML = state.logs.length
+      ? state.logs.slice().reverse().map((l) => `<li><time>${new Date(l.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><span>${esc(l.msg)}</span></li>`).join('')
+      : '<li class="muted">Redemptions will show up here.</li>';
+
+    const key = JSON.stringify(state.alerts);
+    if (force || (key !== alertsKey && !editingId && !draggingVolume)) {
+      alertsKey = key;
+      renderAlerts();
+    }
+    $('addBtn').disabled = state.alerts.length >= state.limits.maxAlerts;
+  }
+
+  function renderAlerts() {
+    const list = me.alerts;
+    if (!list.length) {
+      $('alerts').innerHTML = '<div class="empty">No sound rewards yet. Add your first one below.</div>';
+      return;
+    }
+    $('alerts').innerHTML = list.map((a) => {
+      if (a.id === editingId) {
+        return `<div class="alert" data-id="${a.id}">
+          <div class="edit">
+            <div><label for="et-${a.id}">Reward name</label><input id="et-${a.id}" type="text" maxlength="50" value="${esc(a.title)}"></div>
+            <div><label for="ec-${a.id}">Cost</label><input id="ec-${a.id}" type="number" min="1" step="1" value="${a.cost}"></div>
+            <button class="primary" data-act="save">Save</button>
+            <button class="ghost" data-act="cancel">Cancel</button>
+          </div></div>`;
+      }
+      const vol = Math.round((a.volume ?? 1) * 100);
+      return `<div class="alert ${a.enabled === false ? 'off' : ''}" data-id="${a.id}">
+        <div>
+          <div class="title">${esc(a.title)}</div>
+          <div class="meta">${a.cost} points${a.enabled === false ? ' · paused' : ''}${a.managed ? '' : ' · created in the Kick dashboard'}</div>
+        </div>
+        <div class="row">
+          <button class="small" data-act="test" title="Play in OBS">Test</button>
+          <button class="small ghost" data-act="preview" title="Listen here" aria-label="Listen here">▶</button>
+          <button class="small ghost" data-act="sound">Change sound</button>
+          ${a.managed ? `<button class="small ghost" data-act="edit">Edit</button>
+          <button class="small ghost" data-act="toggle">${a.enabled === false ? 'Resume' : 'Pause'}</button>` : ''}
+          <button class="small ghost danger" data-act="delete">Delete</button>
+        </div>
+        <div class="vol"><label for="v-${a.id}" style="margin:0">Volume</label>
+          <input id="v-${a.id}" type="range" min="0" max="1" step="0.05" value="${a.volume ?? 1}" data-act="volume">
+          <span data-volval>${vol}%</span></div>
+      </div>`;
+    }).join('');
+  }
+
+  async function refresh(force) {
+    try {
+      render(await api('/api/me'), force);
+    } catch {}
+  }
+
+  async function loadKickRewards() {
+    const sel = $('linkReward');
+    try {
+      const { rewards } = await api('/api/rewards');
+      const linked = new Set(me.alerts.map((a) => a.rewardId));
+      const free = rewards.filter((r) => !linked.has(r.id));
+      sel.innerHTML = free.length
+        ? '<option value="">Choose…</option>' + free.map((r) => `<option value="${esc(r.id)}">${esc(r.title)} (${r.cost} points)</option>`).join('')
+        : '<option value="">Every reward already has a sound</option>';
+    } catch (e) {
+      sel.innerHTML = `<option value="">${esc(e.message)}</option>`;
+    }
+  }
+
+  const resetNewSound = bindFilePick('newSoundPick');
+  const resetLinkSound = bindFilePick('linkSoundPick');
+
+  $('addForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    busy($('addBtn'), async () => {
+      const file = $('newSound').files[0];
+      if (!file) throw new Error('Choose a sound file');
+      const sound = await readFile(file, me.limits.maxSoundMb);
+      const title = $('newTitle').value.trim();
+      render(await api('/api/alerts', 'POST', { title, cost: Number($('newCost').value), sound }), true);
+      $('newTitle').value = '';
+      resetNewSound();
+      toast(`"${title}" added and created on Kick`);
+    });
+  });
+
+  $('linkDetails').addEventListener('toggle', () => { if ($('linkDetails').open) loadKickRewards(); });
+
+  $('linkForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    busy($('linkBtn'), async () => {
+      const file = $('linkSound').files[0];
+      if (!$('linkReward').value) throw new Error('Choose a reward');
+      if (!file) throw new Error('Choose a sound file');
+      const sound = await readFile(file, me.limits.maxSoundMb);
+      render(await api('/api/alerts', 'POST', { rewardId: $('linkReward').value, sound }), true);
+      resetLinkSound();
+      loadKickRewards();
+      toast('Sound attached');
+    });
+  });
+
+  $('alerts').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const id = btn.closest('.alert').dataset.id;
+    const a = me.alerts.find((x) => x.id === id);
+    const act = btn.dataset.act;
+
+    if (act === 'preview') {
+      previewAudio?.pause();
+      previewAudio = new Audio(`/media/${me.overlayKey}/${encodeURIComponent(a.file)}`);
+      previewAudio.volume = (a.volume ?? 1) * me.masterVolume;
+      previewAudio.play();
+      return;
+    }
+    if (act === 'edit') { editingId = id; renderAlerts(); $(`et-${id}`).focus(); return; }
+    if (act === 'cancel') { editingId = null; renderAlerts(); return; }
+
+    busy(btn, async () => {
+      if (act === 'test') {
+        const r = await api(`/api/alerts/${id}/test`, 'POST');
+        if (!r.overlays) toast('OBS is not connected. Add the link to OBS as a browser source.', true);
+        else toast(`Playing "${a.title}" in OBS`);
+      } else if (act === 'save') {
+        const state = await api(`/api/alerts/${id}`, 'PATCH', { title: $(`et-${id}`).value, cost: Number($(`ec-${id}`).value) });
+        editingId = null;
+        render(state, true);
+        toast('Saved');
+      } else if (act === 'toggle') {
+        render(await api(`/api/alerts/${id}`, 'PATCH', { enabled: a.enabled === false }), true);
+      } else if (act === 'sound') {
+        const file = await pickFile();
+        if (!file) return;
+        const sound = await readFile(file, me.limits.maxSoundMb);
+        render(await api(`/api/alerts/${id}`, 'PATCH', { sound }), true);
+        toast('Sound changed');
+      } else if (act === 'delete') {
+        const msg = a.managed ? `Delete "${a.title}"? The reward will also be removed from your Kick channel.` : `Remove the sound from "${a.title}"? The reward stays on Kick.`;
+        if (!confirm(msg)) return;
+        render(await api(`/api/alerts/${id}`, 'DELETE'), true);
+        toast('Deleted');
+      }
+    });
+  });
+
+  $('alerts').addEventListener('input', (e) => {
+    if (e.target.dataset.act !== 'volume') return;
+    draggingVolume = true;
+    e.target.parentElement.querySelector('[data-volval]').textContent = Math.round(e.target.value * 100) + '%';
+  });
+  $('alerts').addEventListener('change', async (e) => {
+    if (e.target.dataset.act !== 'volume') return;
+    const id = e.target.closest('.alert').dataset.id;
+    try { render(await api(`/api/alerts/${id}`, 'PATCH', { volume: Number(e.target.value) }), false); }
+    catch (err) { toast(err.message, true); }
+    finally { draggingVolume = false; }
+  });
+  $('alerts').addEventListener('keydown', (e) => {
+    if (!editingId) return;
+    if (e.key === 'Enter') e.target.closest('.alert')?.querySelector('[data-act=save]')?.click();
+    if (e.key === 'Escape') { editingId = null; renderAlerts(); }
+  });
+
+  $('masterVolume').addEventListener('input', (e) => {
+    draggingVolume = true;
+    $('masterVal').textContent = Math.round(e.target.value * 100) + '%';
+  });
+  $('masterVolume').addEventListener('change', async (e) => {
+    try { render(await api('/api/settings', 'POST', { masterVolume: Number(e.target.value) }), false); }
+    catch (err) { toast(err.message, true); }
+    finally { draggingVolume = false; }
+  });
+
+  $('copyOverlay').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(me.overlayUrl);
+      toast('Link copied. Now paste it into OBS.');
+    } catch {
+      prompt('Copy the link:', me.overlayUrl);
+    }
+  });
+
+  $('repairBtn').addEventListener('click', (e) => busy(e.currentTarget, async () => {
+    render(await api('/api/repair', 'POST'), false);
+    toast('Connection repaired');
+  }));
+
+  $('regenBtn').addEventListener('click', (e) => {
+    if (!confirm('Create a new OBS link? The old link will stop working and you will need to replace it in OBS.')) return;
+    busy(e.currentTarget, async () => {
+      render(await api('/api/overlay/regenerate', 'POST'), false);
+      toast('New link ready. Copy it and replace the old link in OBS.');
+    });
+  });
+
+  $('deleteAccountBtn').addEventListener('click', (e) => {
+    if (!confirm('Delete your account? Your sounds, settings and the Kick rewards created here will be removed. This cannot be undone.')) return;
+    busy(e.currentTarget, async () => {
+      await api('/api/account', 'DELETE');
+      location.href = '/';
+    });
+  });
+
+  $('logoutBtn').addEventListener('click', async () => {
+    await fetch('/auth/logout', { method: 'POST' });
+    location.href = '/';
+  });
+
+  const q = new URLSearchParams(location.search);
+  if (q.get('err')) toast(q.get('err'), true);
+  if (q.size) history.replaceState(null, '', '/');
+
+  fetch('/api/me').then(async (res) => {
+    if (res.status === 401) return showLanding();
+    render(await res.json(), true);
+    setInterval(() => { if (!document.hidden) refresh(false); }, 4000);
+  }).catch(showLanding);
+</script>
+</body>
+</html>

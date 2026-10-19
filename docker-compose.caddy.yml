@@ -1,0 +1,29 @@
+# Alternative setup with Caddy instead of a tunnel (ports 80 and 443 must be free).
+# Point a DNS A record at the server, put your domain in Caddyfile, then run:
+#   docker compose -f docker-compose.caddy.yml up -d --build
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      PORT: 3000
+    volumes:
+      - appdata:/data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on:
+      - app
+
+volumes:
+  appdata:
+  caddydata:

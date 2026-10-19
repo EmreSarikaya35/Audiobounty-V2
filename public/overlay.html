@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sound Overlay</title>
+<style>
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  #status {
+    display: none; position: fixed; left: 12px; top: 12px;
+    font: 600 16px/1.4 system-ui, sans-serif; color: #fff;
+    background: rgba(0,0,0,.6); padding: 6px 10px; border-radius: 6px;
+  }
+  body.debug #status { display: block; }
+</style>
+</head>
+<body>
+<div id="status">connecting…</div>
+<script>
+  // ?debug=1 shows the connection status and the sound being played
+  const params = new URLSearchParams(location.search);
+  if (params.has('debug')) document.body.classList.add('debug');
+  const statusEl = document.getElementById('status');
+  const queue = [];
+  let playing = false;
+
+  function show(text) { statusEl.textContent = text; }
+
+  function next() {
+    if (playing || !queue.length) return;
+    const item = queue.shift();
+    playing = true;
+    const audio = new Audio(item.url);
+    audio.volume = item.volume ?? 1;
+    show(`▶ ${item.reward}${item.user ? ' — ' + item.user : ''}`);
+    const done = () => { playing = false; show('connected'); next(); };
+    audio.onended = done;
+    audio.onerror = done;
+    audio.play().catch(done);
+  }
+
+  function connect() {
+    const key = location.pathname.split('/').pop();
+    const es = new EventSource('/events/' + encodeURIComponent(key));
+    es.onopen = () => show('connected');
+    es.onerror = () => show('connection lost, retrying…');
+    es.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'play' && queue.length < 30) {
+        queue.push(msg);
+        next();
+      }
+    };
+  }
+  connect();
+</script>
+</body>
+</html>

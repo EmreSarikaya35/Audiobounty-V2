@@ -1,0 +1,25 @@
+# Deploys behind a Cloudflare Tunnel: no ports are opened on the server, so it
+# coexists with other sites on the same machine. TUNNEL_TOKEN must be set in .env.
+# To use Caddy on ports 80/443 instead of a tunnel, see docker-compose.caddy.yml.
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      PORT: 3000
+    volumes:
+      - appdata:/data
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?TUNNEL_TOKEN must be set in .env}
+    depends_on:
+      - app
+
+volumes:
+  appdata:
