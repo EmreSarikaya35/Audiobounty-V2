@@ -1,12 +1,16 @@
 # Kick Sound Alerts
 
-Play a sound in OBS when a viewer redeems a [Kick](https://kick.com) channel point reward.
+Let viewers play sounds on stream with [Kick](https://kick.com) channel points, and have their messages read aloud.
 
 [Example Website](https://audio.mrkaffin.com/)
 
-You host it once. Streamers just log in with Kick, add their sounds and paste one link into OBS. They don't install anything.
+You host it once. Streamers log in with Kick, add their sounds and paste one link into OBS. They don't install anything.
 
-- **Rewards are created for you.** Streamers enter a name, a cost and a sound; the reward appears on their Kick channel automatically. Rewards that already exist on Kick can get a sound too.
+- **Rewards are created for you.** Streamers pick a name, a cost, a color and a sound; the reward appears on their Kick channel automatically. Rewards that already exist on Kick can get a sound too.
+- **Sounds from a file or from myinstants.com.** Upload your own file, or search [myinstants.com](https://www.myinstants.com), browse trending sounds and keep favorites without downloading anything.
+- **Text-to-speech rewards.** The viewer types a message when redeeming and it's read aloud on stream, with a banned-word list and a spam filter.
+- **Live controls.** Mute everything, skip the current sound or clear the queue while you're live.
+- **An on-stream card** shows who redeemed what, with the message being read.
 - **One link per streamer.** Each streamer gets a private, unguessable OBS browser source URL that can be regenerated at any time.
 - **Multi-streamer.** One deployment serves any number of channels.
 - **Official Kick API.** OAuth 2.1 login, channel reward management and signed webhooks. No scraping, no unofficial sockets.
@@ -18,7 +22,8 @@ You host it once. Streamers just log in with Kick, add their sounds and paste on
 Viewer redeems "sound1" on Kick
   → Kick sends a signed webhook to https://your-domain/webhook
   → The server verifies the signature and finds the streamer and the reward
-  → The streamer's OBS browser source (/overlay/<secret-key>) plays the sound
+  → The streamer's OBS browser source (/overlay/<secret-key>) plays the sound,
+    then reads the viewer's message if it's a text-to-speech reward
 ```
 
 - Each redemption plays once, even if Kick delivers the webhook more than once. Rejected redemptions don't play.
@@ -26,9 +31,56 @@ Viewer redeems "sound1" on Kick
 
 ### What streamers do
 
-1. Open your site and click **Log in with Kick**.
-2. Enter a reward name, a cost and a sound file, and click **Add**.
-3. Copy the **OBS link** and add it to OBS as a **Browser** source.
+1. Open the site and click **Log in with Kick**.
+2. Copy the **OBS link** and add it to OBS as a **Browser** source.
+3. Enter a reward name and a cost, pick a color and a sound (a file, or **myinstants**), and click **Add**.
+
+## Features
+
+### Sound rewards
+
+- **Add**: name, cost, color on Kick (8 presets or a custom color) and a sound. Turn on **Read the viewer's message aloud** to make it a text-to-speech reward; the sound is then optional.
+- **Attach** a sound to a reward that already exists on Kick.
+- Per reward: **Test** plays it in OBS, **▶** plays it in the browser, and the **•••** menu changes the sound (file or myinstants), turns text-to-speech on or off, edits the name, cost and color, pauses or resumes it, or deletes it.
+- Rewards created in the Kick dashboard keep their name, cost and color on Kick; only their sound is managed here.
+- A volume slider per reward, on top of the master volume.
+
+### myinstants.com picker
+
+Search myinstants.com, see trending sounds, listen before choosing and star favorites (up to 50). The server downloads the chosen sound and stores it like an uploaded file, so it keeps working even if it disappears from myinstants. On phones the picker is a bottom sheet you can drag down to close.
+
+### Text-to-speech
+
+- The reward asks viewers for a message on Kick. When it's redeemed, the sound plays (if there is one) and then the message is read in Turkish or English.
+- Messages are cut at 200 characters and links are removed.
+- **Banned words**: messages containing a listed word are not read. Matching is by whole word, so banning `am` doesn't block `tamam`. An entry with spaces matches that exact phrase.
+- **Spam filter**: messages made of one repeated character (`ğğğğğ`, `-----`, `ğ ğ ğ ğ ğ`), with no letters or digits, or dominated by a single character are not read.
+- Skipped messages show up in **Recent activity** with the reason.
+
+### Live controls
+
+- **Mute all sounds**: nothing plays in OBS; redemptions are still logged. Muting also clears what's queued.
+- **Skip current sound** and **Clear queue**.
+
+### Settings
+
+| Setting | What it does |
+|---|---|
+| Master volume | Scales every sound |
+| Max sound length | Cuts sounds after N seconds (0 = no limit) |
+| Even out loudness | Turns down sounds that are much louder than the rest |
+| Show who redeemed it on stream | The on-stream card with the viewer's name and message |
+| Text-to-speech voice | Turkish or English |
+| Banned words | Comma or line separated |
+| Regenerate OBS link | The old link stops working |
+| Delete account | Removes the streamer's sounds, settings and the Kick rewards created here |
+
+### Interface
+
+- Turkish and English, from the button in the header (defaults to the browser's language).
+- Automatic, light or dark theme from the theme button in the header, also available before logging in.
+- Long lists (rewards, recent activity) show the first 3 with **Show all**.
+- Respects the system's reduced motion, reduced transparency and increased contrast settings.
 
 ---
 
@@ -43,6 +95,7 @@ Throughout this guide, replace `alerts.example.com` with your own domain and `SE
 - A Linux server (any small VPS works, 1 GB RAM is plenty)
 - A domain managed by Cloudflare
 - A Kick account
+- Outbound internet access to `kick.com`, `www.myinstants.com` (sound picker) and `translate.google.com` (text-to-speech)
 
 ### Step 1: Create a Kick app
 
@@ -77,7 +130,7 @@ docker --version && docker compose version
 ### Step 3: Get the code onto the server
 
 ```bash
-git clone https://github.com/EmreSarikaya35/kick-sound-alerts.git /opt/kick-sound-alerts
+git clone https://github.com/EmreSarikaya35/Audiobounty-V2.git /opt/kick-sound-alerts
 cd /opt/kick-sound-alerts
 ```
 
@@ -144,6 +197,7 @@ The containers restart automatically after a reboot.
 3. The dashboard should show no warning banners. If it says it isn't receiving reward notifications, check the webhook settings from Step 1 and click **Repair**.
 4. Add a sound reward, add the OBS link to OBS and click **Test**. The sound should play in OBS.
 5. Redeem the reward on Kick. The sound should play and appear under **Recent activity**.
+6. Add a text-to-speech reward and redeem it with a message. The message should be read in OBS.
 
 ---
 
@@ -188,9 +242,11 @@ All settings are environment variables, read from `.env`.
 | `TUNNEL_TOKEN` | Cloudflare Tunnel token (tunnel setup only) |
 | `PORT` | HTTP port, default `3000` |
 | `DATA_DIR` | Data directory, default `data` (`/data` in Docker) |
-| `MAX_SOUND_MB` | Max sound file size, default `5` |
+| `MAX_SOUND_MB` | Max sound file size, default `5`; also applies to myinstants sounds |
 | `MAX_ALERTS` | Max sound rewards per streamer, default `30` (Kick's limit is 50) |
 | `SESSION_SECRET` | Cookie signing secret; generated and stored in the data directory if empty |
+
+Everything a streamer sets in the dashboard (rewards, volumes, text-to-speech, banned words, favorites, mute) is stored per streamer in `DATA_DIR/users/<id>.json`. Language and theme are stored in the browser.
 
 ## Other ways to run it
 
@@ -238,6 +294,10 @@ Set the `https://….trycloudflare.com` address as `PUBLIC_URL`, update the Redi
 | Test works, real redemptions don't | The Webhook URL in your Kick app must be exactly `PUBLIC_URL/webhook`. |
 | Permission error when adding a reward | `channel:rewards:write` is missing from the scopes. After adding it, streamers must log out and back in. |
 | "OBS not connected" | The browser source isn't added, or it uses an old link. Right-click the source in OBS and choose **Refresh**. |
+| Nothing plays when a reward is redeemed | Check that **Mute all sounds** is off; muted redemptions show "(muted)" in Recent activity. |
+| A message isn't read | Recent activity says why: a banned word or spam. Also check that the reward has text-to-speech turned on. |
+| "myinstants.com is not responding" or no search results | The server can't reach myinstants.com, or myinstants changed its page layout (the picker reads its HTML; there's no official API). |
+| "Text-to-speech is not available right now" | The server can't reach translate.google.com, or Google is blocking the unofficial endpoint. |
 
 ## Security
 
@@ -245,15 +305,19 @@ Set the `https://….trycloudflare.com` address as `PUBLIC_URL`, update the Redi
 - Sessions are HMAC-signed, `HttpOnly`, `SameSite=Lax` cookies. State-changing API calls also require a same-origin `Origin` header.
 - Overlay URLs contain a random 144-bit key and can be regenerated from the dashboard.
 - Kick tokens are stored server-side only, in `DATA_DIR/users/*.json`. Protect that directory and `.env`.
+- The server only downloads sounds from `https://www.myinstants.com/media/sounds/`, without following redirects, so the picker can't be used to make it fetch other addresses.
+- Reward colors must be `#rrggbb`; anything else is ignored.
 
 ## Project structure
 
 ```
-server.js                 HTTP server: sessions, webhook, dashboard API, overlay stream
+server.js                 HTTP server: sessions, webhook, dashboard API, overlay stream,
+                          myinstants search and text-to-speech proxy
 lib/kick.js               Kick OAuth, API client and webhook signature verification
 lib/store.js              JSON file storage (data/users/*.json, data/sounds/<id>/)
 public/index.html         Landing page and streamer dashboard
-public/overlay.html       OBS browser source
+public/overlay.html       OBS browser source: queue, on-stream card, text-to-speech
+.env.example              Settings template
 Dockerfile                App image
 docker-compose.yml        App + Cloudflare Tunnel
 docker-compose.caddy.yml  App + Caddy (alternative)
