@@ -1,4 +1,4 @@
-# Kick Sound Alerts
+# AudioBounty
 
 Let viewers play sounds on stream with [Kick](https://kick.com) channel points, and have their messages read aloud.
 

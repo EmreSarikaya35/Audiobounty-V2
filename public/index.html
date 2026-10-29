@@ -12,10 +12,37 @@
     document.documentElement.dataset.theme = light ? 'light' : 'dark';
   })();
 </script>
-<title>Kick Sound Alerts</title>
-<link rel="icon" type="image/png" href="/favicon.png">
-<link rel="apple-touch-icon" href="/favicon.png">
-<meta name="description" content="Let your viewers play sounds on stream with channel points. Add one link to OBS and you're done.">
+<title>AudioBounty – Kick Sound Alerts and Text-to-Speech for OBS</title>
+<meta name="description" content="Let your Kick viewers play sounds and have their messages read aloud on stream with channel points. Pick sounds from myinstants and add one link to OBS.">
+<!-- %PUBLIC_URL% is filled in by the server from PUBLIC_URL -->
+<link rel="canonical" href="%PUBLIC_URL%/">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔊</text></svg>">
+<meta name="theme-color" content="#0a0b0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f2f6" media="(prefers-color-scheme: light)">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="AudioBounty">
+<meta property="og:title" content="AudioBounty – Kick Sound Alerts and Text-to-Speech for OBS">
+<meta property="og:description" content="Let your Kick viewers play sounds and have their messages read aloud on stream with channel points. Pick sounds from myinstants and add one link to OBS.">
+<meta property="og:url" content="%PUBLIC_URL%/">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="tr_TR">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="AudioBounty – Kick Sound Alerts and Text-to-Speech for OBS">
+<meta name="twitter:description" content="Let your Kick viewers play sounds and have their messages read aloud on stream with channel points. Pick sounds from myinstants and add one link to OBS.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "AudioBounty",
+  "url": "%PUBLIC_URL%/",
+  "description": "Let your Kick viewers play sounds and have their messages read aloud on stream with channel points. Pick sounds from myinstants and add one link to OBS.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "Web",
+  "inLanguage": ["en", "tr"],
+  "creator": { "@type": "Person", "name": "Emre Sarıkaya" }
+}
+</script>
 <style>
   :root {
     --bg: #0a0b0d; --surface: #141619; --surface-2: #1b1e22; --raised: #23272c;
@@ -105,7 +132,8 @@
   input.switch:checked:active::after { transform: translateX(calc(1.125rem - 6px)); }
 
   /* Landing */
-  .top-right { position: relative; z-index: 6; display: flex; justify-content: flex-end; gap: .25rem; padding-top: 1rem; }
+  .top-right { position: relative; z-index: 6; display: flex; justify-content: flex-end; align-items: center; gap: .25rem; padding-top: 1rem; }
+  .wordmark { margin-right: auto; font-weight: 750; font-size: 1.0625rem; letter-spacing: -.02em; }
   .theme-btn { width: 2.125rem; padding: 0; font-size: 1.05rem; }
   /* The header is already a backdrop root, so its menu can't blur the page: give it a solid surface */
   .theme-wrap .menu { min-width: 10.5rem; background: var(--raised); }
@@ -323,6 +351,7 @@
   <!-- Logged out -->
   <div id="landing" hidden>
     <div class="top-right">
+      <span class="wordmark"><span aria-hidden="true">🔊</span> AudioBounty</span>
       <button class="ghost small lang-btn" type="button" aria-label="Language / Dil">TR / EN</button>
       <div class="menu-wrap theme-wrap">
         <button class="ghost small theme-btn" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false">◐</button>
@@ -580,6 +609,7 @@
     'Close': 'Kapat',
     'More': 'Diğer',
     'Theme': 'Tema',
+    'AudioBounty – Kick Sound Alerts and Text-to-Speech for OBS': 'AudioBounty – Kick için OBS Sesli Uyarıları ve Metin Okuma',
     'Color on Kick': 'Kick\'teki rengi',
     'Custom color': 'Özel renk',
     'Green': 'Yeşil', 'Blue': 'Mavi', 'Purple': 'Mor', 'Pink': 'Pembe', 'Red': 'Kırmızı', 'Orange': 'Turuncu', 'Yellow': 'Sarı', 'Cyan': 'Turkuaz',
@@ -682,6 +712,7 @@
 
   function applyLang() {
     document.documentElement.lang = lang;
+    document.title = t('AudioBounty – Kick Sound Alerts and Text-to-Speech for OBS');
     document.querySelectorAll('[data-i18n]').forEach((el) => { el.dataset.en ??= el.innerHTML.trim(); el.innerHTML = t(el.dataset.en); });
     document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
     document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });

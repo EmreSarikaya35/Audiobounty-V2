@@ -18,6 +18,11 @@ const PUBLIC_DIR = path.join(ROOT, 'public');
 const SECURE_COOKIE = PUBLIC_URL.startsWith('https://');
 const PUBLIC_ORIGIN = new URL(PUBLIC_URL).origin;
 
+// The landing page carries absolute URLs (canonical, Open Graph, schema) filled from PUBLIC_URL.
+// It's read once at startup, so restart the server after editing public/index.html.
+const INDEX_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8').replaceAll('%PUBLIC_URL%', PUBLIC_URL);
+const ROBOTS_TXT = ['User-agent: *', 'Allow: /', ...['/api/', '/auth/', '/overlay/', '/events/', '/media/', '/tts/'].map((d) => `Disallow: ${d}`), '', `Sitemap: ${PUBLIC_URL}/sitemap.xml`, ''].join('\n');
+
 const AUDIO_TYPES = {
   '.mp3': 'audio/mpeg',
   '.wav': 'audio/wav',
@@ -662,6 +667,19 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/healthz') return sendJson(res, 200, { ok: true, users: store.count() });
+
+    if (p === '/' || p === '/index.html') {
+      res.writeHead(200, { 'Content-Type': STATIC_TYPES['.html'], 'Cache-Control': 'no-cache' });
+      return res.end(INDEX_HTML);
+    }
+    if (p === '/robots.txt') {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end(ROBOTS_TXT);
+    }
+    if (p === '/sitemap.xml') {
+      res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8' });
+      return res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${PUBLIC_URL}/</loc></url></urlset>\n`);
+    }
 
     if (req.method === 'GET') {
       const file = p === '/' ? 'index.html' : path.basename(p);
