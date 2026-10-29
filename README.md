@@ -2,7 +2,7 @@
 
 Play a sound in OBS when a viewer redeems a [Kick](https://kick.com) channel point reward.
 
-[Example Website](https://ses.meyus.org/)
+[Example Website](https://audio.mrkaffin.com/)
 
 You host it once. Streamers just log in with Kick, add their sounds and paste one link into OBS. They don't install anything.
 
