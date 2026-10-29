@@ -105,7 +105,13 @@
   input.switch:checked:active::after { transform: translateX(calc(1.125rem - 6px)); }
 
   /* Landing */
-  .top-right { display: flex; justify-content: flex-end; padding-top: 1rem; }
+  .top-right { display: flex; justify-content: flex-end; gap: .25rem; padding-top: 1rem; }
+  .theme-btn { width: 2.125rem; padding: 0; font-size: 1.05rem; }
+  /* The header is already a backdrop root, so its menu can't blur the page: give it a solid surface */
+  .theme-wrap .menu { min-width: 10.5rem; background: var(--raised); }
+  .theme-wrap .menu button[aria-checked="true"] { color: var(--accent-text); font-weight: 650; }
+  .theme-wrap .menu button[aria-checked="true"]::after { content: "✓"; margin-left: auto; }
+  .more { display: flex; margin: .6rem auto 0; color: var(--accent-text); font-weight: 600; }
   .hero { padding: 4.5rem 0 2rem; text-align: center; }
   .hero h1 { font-size: clamp(2rem, 6.5vw, 3.25rem); line-height: 1.05; letter-spacing: -.035em; font-weight: 750; margin-bottom: 1rem; }
   .hero p { color: var(--muted); font-size: 1.125rem; line-height: 1.45; letter-spacing: -.01em; margin: 0 auto 2rem; max-width: 32rem; }
@@ -302,7 +308,17 @@
 
   <!-- Logged out -->
   <div id="landing" hidden>
-    <div class="top-right"><button class="ghost small lang-btn" type="button" aria-label="Language / Dil">TR / EN</button></div>
+    <div class="top-right">
+      <button class="ghost small lang-btn" type="button" aria-label="Language / Dil">TR / EN</button>
+      <div class="menu-wrap theme-wrap">
+        <button class="ghost small theme-btn" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false">◐</button>
+        <div class="menu" role="menu">
+          <button role="menuitemradio" data-pref="auto">◐ <span data-i18n>Automatic</span></button>
+          <button role="menuitemradio" data-pref="light">☀︎ <span data-i18n>Light</span></button>
+          <button role="menuitemradio" data-pref="dark">☾ <span data-i18n>Dark</span></button>
+        </div>
+      </div>
+    </div>
     <div class="hero">
       <h1 data-i18n>Let your viewers play sounds<br>on stream with channel points</h1>
       <p data-i18n>Create a reward, upload a sound, paste the link into OBS. Nothing to download, nothing to configure.</p>
@@ -322,6 +338,14 @@
       <img id="avatar" alt="">
       <span class="name" id="userName"></span>
       <button class="ghost small lang-btn" type="button" aria-label="Language / Dil">TR / EN</button>
+      <div class="menu-wrap theme-wrap">
+        <button class="ghost small theme-btn" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false">◐</button>
+        <div class="menu" role="menu">
+          <button role="menuitemradio" data-pref="auto">◐ <span data-i18n>Automatic</span></button>
+          <button role="menuitemradio" data-pref="light">☀︎ <span data-i18n>Light</span></button>
+          <button role="menuitemradio" data-pref="dark">☾ <span data-i18n>Dark</span></button>
+        </div>
+      </div>
       <button class="ghost small" id="logoutBtn" data-i18n>Log out</button>
     </header>
 
@@ -338,6 +362,20 @@
     </div>
 
     <section class="card">
+      <h2><span data-i18n>Your OBS link</span> <span id="obsStatus" class="status off"></span></h2>
+      <p class="lead" data-i18n>This link is personal. Don't share it with anyone.</p>
+      <div class="linkbox">
+        <code id="overlayUrl">••••••••</code>
+        <button class="primary" id="copyOverlay" data-i18n>Copy</button>
+      </div>
+      <ol class="steps">
+        <li data-i18n>In OBS, click <b>+</b> under <b>Sources</b> and choose <b>Browser</b>.</li>
+        <li data-i18n>Paste the link into the <b>URL</b> field and click <b>OK</b>.</li>
+        <li data-i18n>Tick <b>Control audio via OBS</b> to see the sound in the OBS mixer.</li>
+      </ol>
+    </section>
+
+    <section class="card">
       <h2><span data-i18n>Live controls</span></h2>
       <p class="lead" data-i18n>Use these during the stream.</p>
       <div class="live">
@@ -351,7 +389,7 @@
       <h2 data-i18n>Sound rewards</h2>
       <p class="lead" data-i18n>Rewards you add here are created on your Kick channel automatically. When a viewer redeems one, its sound plays in OBS.</p>
       <div class="alerts" id="alerts"></div>
-
+      <button class="ghost small more" type="button" id="alertsMore" hidden></button>
       <form class="add" id="addForm" autocomplete="off">
         <div><label for="newTitle" data-i18n>Reward name</label><input id="newTitle" type="text" maxlength="50" data-i18n-ph="e.g. sound1" required></div>
         <div><label for="newCost" data-i18n>Cost</label><input id="newCost" type="number" min="1" step="1" value="100" required></div>
@@ -368,7 +406,6 @@
         <button class="primary" type="submit" id="addBtn" data-i18n>Add</button>
         <label class="check"><input type="checkbox" class="switch" role="switch" id="newTts"> <span data-i18n>Read the viewer's message aloud (text-to-speech). The sound becomes optional.</span></label>
       </form>
-
       <details class="link-existing" id="linkDetails">
         <summary data-i18n>Add a sound to a reward that already exists on Kick</summary>
         <form class="add" id="linkForm" autocomplete="off">
@@ -390,25 +427,6 @@
     </section>
 
     <section class="card">
-      <h2><span data-i18n>Your OBS link</span> <span id="obsStatus" class="status off"></span></h2>
-      <p class="lead" data-i18n>This link is personal. Don't share it with anyone.</p>
-      <div class="linkbox">
-        <code id="overlayUrl">••••••••</code>
-        <button class="primary" id="copyOverlay" data-i18n>Copy</button>
-      </div>
-      <ol class="steps">
-        <li data-i18n>In OBS, click <b>+</b> under <b>Sources</b> and choose <b>Browser</b>.</li>
-        <li data-i18n>Paste the link into the <b>URL</b> field and click <b>OK</b>.</li>
-        <li data-i18n>Tick <b>Control audio via OBS</b> to see the sound in the OBS mixer.</li>
-      </ol>
-    </section>
-
-    <section class="card">
-      <h2 data-i18n>Recent activity</h2>
-      <ul class="log" id="log"></ul>
-    </section>
-
-    <section class="card">
       <h2 data-i18n>Settings</h2>
       <div class="settings">
         <div>
@@ -426,14 +444,6 @@
           <select id="ttsLang" data-setting="ttsLang"><option value="tr">Türkçe</option><option value="en">English</option></select>
         </div>
         <div class="wide">
-          <span class="field-label" id="themeLabel" data-i18n>Appearance</span>
-          <div class="seg" id="themeSeg" role="radiogroup" aria-labelledby="themeLabel">
-            <button type="button" role="radio" data-pref="auto" data-i18n>Automatic</button>
-            <button type="button" role="radio" data-pref="light" data-i18n>Light</button>
-            <button type="button" role="radio" data-pref="dark" data-i18n>Dark</button>
-          </div>
-        </div>
-        <div class="wide">
           <label for="bannedWords" data-i18n>Banned words for text-to-speech (comma or line separated). Messages with these words are not read.</label>
           <textarea id="bannedWords" rows="3" data-setting="bannedWords"></textarea>
         </div>
@@ -442,6 +452,12 @@
           <button class="small ghost danger" id="deleteAccountBtn" data-i18n>Delete account</button>
         </div>
       </div>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n>Recent activity</h2>
+      <ul class="log" id="log"></ul>
+      <button class="ghost small more" type="button" id="logMore" hidden></button>
     </section>
   </div>
 
@@ -545,7 +561,8 @@
     'Favorites': 'Favoriler',
     'Close': 'Kapat',
     'More': 'Diğer',
-    'Appearance': 'Görünüm',
+    'Theme': 'Tema',
+    'Show less': 'Daha az göster',
     'Automatic': 'Otomatik',
     'Light': 'Açık',
     'Dark': 'Koyu',
@@ -616,6 +633,8 @@
   // Server log lines and messages built from templates.
   const TR_PATTERNS = [
     [/^(.+) redeemed "(.+)"( \(OBS was not connected!\))?( \(muted\))?$/, (m) => `${m[1] === 'Someone' ? 'Birisi' : m[1]} "${m[2]}" ödülünü kullandı${m[3] ? ' (OBS bağlı değildi!)' : ''}${m[4] ? ' (sessiz)' : ''}`],
+    [/^Show all \((\d+)\)$/, (m) => `Tümünü göster (${m[1]})`],
+    [/^Theme: (.+)$/, (m) => `Tema: ${t(m[1])}`],
     [/^Added "(.+)"$/, (m) => `"${m[1]}" eklendi`],
     [/^Deleted "(.+)"$/, (m) => `"${m[1]}" silindi`],
     [/^Message from (.+) was not read: it has a banned word$/, (m) => `${m[1] === 'someone' ? 'Birinin' : m[1] + ' adlı izleyicinin'} mesajı okunmadı: yasaklı kelime içeriyor`],
@@ -647,6 +666,7 @@
     document.querySelectorAll('[data-i18n-label]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nLabel)); });
     document.querySelectorAll('.file-pick:not(.has) .btn').forEach((el) => { el.textContent = t('Choose file…'); });
     document.querySelectorAll('.lang-btn').forEach((el) => { el.textContent = lang === 'tr' ? 'English' : 'Türkçe'; });
+    syncTheme();
     if (me) render(me, true);
   }
   document.querySelectorAll('.lang-btn').forEach((el) => el.addEventListener('click', () => {
@@ -751,18 +771,21 @@
   const lightQuery = matchMedia('(prefers-color-scheme: light)');
   const effectiveTheme = () => (themePref === 'auto' ? (lightQuery.matches ? 'light' : 'dark') : themePref);
 
-  function syncThemeSeg() {
-    for (const b of $('themeSeg').querySelectorAll('button')) {
-      b.classList.toggle('on', b.dataset.pref === themePref);
-      b.setAttribute('aria-checked', b.dataset.pref === themePref);
+  const THEME_ICON = { auto: '◐', light: '☀︎', dark: '☾' };
+  const THEME_NAME = { auto: 'Automatic', light: 'Light', dark: 'Dark' };
+  function syncTheme() {
+    for (const b of document.querySelectorAll('.theme-btn')) {
+      b.textContent = THEME_ICON[themePref];
+      b.setAttribute('aria-label', t(`Theme: ${THEME_NAME[themePref]}`));
+      b.title = t('Theme');
     }
-    movePill($('themeSeg'));
+    for (const b of document.querySelectorAll('.theme-wrap [data-pref]')) b.setAttribute('aria-checked', b.dataset.pref === themePref);
   }
 
   function setTheme(pref, from) {
     themePref = pref;
     try { localStorage.setItem('theme', pref); } catch {}
-    syncThemeSeg();
+    syncTheme();
     const next = effectiveTheme();
     if (document.documentElement.dataset.theme === next) return;
     const apply = () => { document.documentElement.dataset.theme = next; };
@@ -777,10 +800,16 @@
       );
     });
   }
-  $('themeSeg').addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-pref]');
-    if (b) setTheme(b.dataset.pref, b);
-  });
+  for (const wrap of document.querySelectorAll('.theme-wrap')) {
+    const btn = wrap.querySelector('.theme-btn');
+    btn.addEventListener('click', () => toggleMenu(btn));
+    wrap.querySelector('.menu').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-pref]');
+      if (!b) return;
+      closeMenus();
+      setTheme(b.dataset.pref, btn);
+    });
+  }
   lightQuery.addEventListener('change', () => { if (themePref === 'auto') setTheme('auto'); });
 
   // A sound comes from a local file or a myinstants pick; sound() returns what /api/alerts expects
@@ -989,6 +1018,15 @@
     $('app').hidden = true;
   }
 
+  // Long lists show the first few with a "Show all" toggle so the page doesn't grow forever.
+  const LIST_PREVIEW = 3;
+  let showAllLogs = false, showAllAlerts = false, revealFrom = -1;
+  function moreButton(btn, total, all) {
+    btn.hidden = total <= LIST_PREVIEW;
+    btn.textContent = all ? t('Show less') : t(`Show all (${total})`);
+    btn.setAttribute('aria-expanded', all);
+  }
+
   let firstRender = true, lastLogT = 0, lastOn = null;
   function render(state, force) {
     me = state;
@@ -1027,12 +1065,14 @@
       else el.value = Array.isArray(v) ? v.join(', ') : v;
     }
 
-    $('log').innerHTML = state.logs.length
-      ? state.logs.slice().reverse().map((l) => `<li class="${!firstRender && l.t > lastLogT ? 'enter' : ''}"><time>${new Date(l.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><span>${esc(t(l.msg))}</span></li>`).join('')
+    const logs = state.logs.slice().reverse();
+    const shownLogs = showAllLogs ? logs : logs.slice(0, LIST_PREVIEW);
+    moreButton($('logMore'), logs.length, showAllLogs);
+    $('log').innerHTML = logs.length
+      ? shownLogs.map((l, i) => `<li class="${(!firstRender && l.t > lastLogT) || i >= revealFrom && revealFrom >= 0 ? 'enter' : ''}" style="--i:${Math.max(0, i - revealFrom)}"><time>${new Date(l.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><span>${esc(t(l.msg))}</span></li>`).join('')
       : `<li class="muted">${esc(t('Redemptions will show up here.'))}</li>`;
 
     lastLogT = Math.max(lastLogT, ...state.logs.map((l) => l.t));
-    syncThemeSeg();
 
     const key = JSON.stringify(state.alerts);
     if (force || (key !== alertsKey && !editingId && !draggingVolume && !document.querySelector('.menu-wrap.open'))) {
@@ -1049,10 +1089,14 @@
     const isNew = (a) => knownAlertIds && !knownAlertIds.has(a.id);
     knownAlertIds = new Set(list.map((a) => a.id));
     if (!list.length) {
+      $('alertsMore').hidden = true;
       $('alerts').innerHTML = `<div class="empty">${esc(t('No sound rewards yet. Add your first one below.'))}</div>`;
       return;
     }
-    $('alerts').innerHTML = list.map((a) => {
+    const shown = showAllAlerts ? list : list.slice(0, LIST_PREVIEW);
+    moreButton($('alertsMore'), list.length, showAllAlerts);
+    $('alerts').innerHTML = shown.map((a, i) => {
+      const anim = isNew(a) ? 'enter' : revealFrom >= 0 && i >= revealFrom ? 'enter" style="--i:' + (i - revealFrom) : '';
       if (a.id === editingId) {
         return `<div class="alert" data-id="${a.id}">
           <div class="edit">
@@ -1063,7 +1107,7 @@
           </div></div>`;
       }
       const vol = Math.round((a.volume ?? 1) * 100);
-      return `<div class="alert ${a.enabled === false ? 'off' : ''} ${isNew(a) ? 'enter' : ''}" data-id="${a.id}">
+      return `<div class="alert ${a.enabled === false ? 'off' : ''} ${anim}" data-id="${a.id}">
         <div>
           <div class="title">${esc(a.title)}</div>
           <div class="meta">${a.cost} ${t('points')}${a.tts ? ' · 🗣️ ' + t('text-to-speech') : ''}${a.enabled === false ? ' · ' + t('paused') : ''}${a.managed ? '' : ' · ' + t('created in the Kick dashboard')}</div>
@@ -1122,6 +1166,7 @@
     busy($('addBtn'), async () => {
       const sound = await newPick.sound(me.limits.maxSoundMb);
       const title = $('newTitle').value.trim();
+      showAllAlerts = true;
       render(await api('/api/alerts', 'POST', { title, cost: Number($('newCost').value), sound, tts: $('newTts').checked }), true);
       $('newTitle').value = '';
       $('newTts').checked = false;
@@ -1138,6 +1183,7 @@
     busy($('linkBtn'), async () => {
       if (!$('linkReward').value) throw new Error('Choose a reward');
       const sound = await linkPick.sound(me.limits.maxSoundMb);
+      showAllAlerts = true;
       render(await api('/api/alerts', 'POST', { rewardId: $('linkReward').value, sound, tts: $('linkTts').checked }), true);
       $('linkTts').checked = false;
       linkPick.setOptional(false);
@@ -1155,14 +1201,7 @@
     const act = btn.dataset.act;
     const menuBtn = btn.closest('.alert').querySelector('[data-act=menu]');
 
-    if (act === 'menu') {
-      const wrap = btn.parentElement, open = !wrap.classList.contains('open');
-      closeMenus();
-      wrap.classList.toggle('open', open);
-      btn.setAttribute('aria-expanded', open);
-      if (open) wrap.querySelector('[role=menuitem]').focus();
-      return;
-    }
+    if (act === 'menu') return toggleMenu(btn);
     closeMenus();
 
     if (act === 'preview') {
@@ -1217,6 +1256,14 @@
     });
   });
 
+  function toggleMenu(btn) {
+    const wrap = btn.parentElement, open = !wrap.classList.contains('open');
+    closeMenus();
+    wrap.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', open);
+    if (open) wrap.querySelector('[role^=menuitem]').focus();
+  }
+
   function closeMenus() {
     document.querySelectorAll('.menu-wrap.open').forEach((w) => {
       w.classList.remove('open');
@@ -1230,10 +1277,25 @@
     if (e.key === 'Escape') { closeMenus(); wrap.querySelector('[data-act=menu]').focus(); }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
-      const items = [...wrap.querySelectorAll('[role=menuitem]')];
+      const items = [...wrap.querySelectorAll('[role^=menuitem]')];
       const i = items.indexOf(document.activeElement);
       items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
     }
+  });
+
+  $('logMore').addEventListener('click', () => {
+    showAllLogs = !showAllLogs;
+    revealFrom = showAllLogs ? LIST_PREVIEW : -1;
+    render(me, false);
+    revealFrom = -1;
+  });
+  $('alertsMore').addEventListener('click', () => {
+    showAllAlerts = !showAllAlerts;
+    editingId = null;
+    revealFrom = showAllAlerts ? LIST_PREVIEW : -1;
+    renderAlerts();
+    revealFrom = -1;
+    if (!showAllAlerts) $('alerts').closest('section').scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth', block: 'start' });
   });
 
   const header = document.querySelector('header.top');
