@@ -462,6 +462,8 @@ async function handleApi(req, res, user, p) {
       if (b.title !== undefined && b.title !== alert.title) kickFields.title = validTitle(b.title);
       if (b.cost !== undefined && Number(b.cost) !== alert.cost) kickFields.cost = validCost(b.cost);
       if (b.enabled !== undefined && Boolean(b.enabled) !== alert.enabled) kickFields.is_enabled = Boolean(b.enabled);
+      const color = b.color !== undefined && validColor(b.color);
+      if (color && color !== alert.color) kickFields.background_color = color;
       if (b.tts !== undefined && Boolean(b.tts) !== Boolean(alert.tts)) {
         if (!b.tts && !alert.file && !b.sound) throw new HttpError(400, 'Add a sound before turning off text-to-speech');
         if (alert.managed) kickFields.is_user_input_required = Boolean(b.tts);
@@ -474,6 +476,7 @@ async function handleApi(req, res, user, p) {
         if (kickFields.cost) alert.cost = kickFields.cost;
         if ('is_enabled' in kickFields) alert.enabled = kickFields.is_enabled;
         if ('is_user_input_required' in kickFields) alert.tts = kickFields.is_user_input_required;
+        if (kickFields.background_color) alert.color = kickFields.background_color;
       }
       if (b.volume !== undefined) alert.volume = validVolume(b.volume);
       if (b.sound) {

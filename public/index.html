@@ -420,17 +420,7 @@
         <button class="primary" type="submit" id="addBtn" data-i18n>Add</button>
         <div class="color-field">
           <span class="field-label" id="colorLabel" data-i18n>Color on Kick</span>
-          <div class="swatches" role="radiogroup" aria-labelledby="colorLabel">
-            <label class="swatch" style="--c:#00e701"><input type="radio" name="newColor" value="#00e701" checked data-i18n-label="Green"></label>
-            <label class="swatch" style="--c:#2f80ed"><input type="radio" name="newColor" value="#2f80ed" data-i18n-label="Blue"></label>
-            <label class="swatch" style="--c:#9b51e0"><input type="radio" name="newColor" value="#9b51e0" data-i18n-label="Purple"></label>
-            <label class="swatch" style="--c:#eb2f96"><input type="radio" name="newColor" value="#eb2f96" data-i18n-label="Pink"></label>
-            <label class="swatch" style="--c:#f5222d"><input type="radio" name="newColor" value="#f5222d" data-i18n-label="Red"></label>
-            <label class="swatch" style="--c:#fa8c16"><input type="radio" name="newColor" value="#fa8c16" data-i18n-label="Orange"></label>
-            <label class="swatch" style="--c:#fadb14"><input type="radio" name="newColor" value="#fadb14" data-i18n-label="Yellow"></label>
-            <label class="swatch" style="--c:#13c2c2"><input type="radio" name="newColor" value="#13c2c2" data-i18n-label="Cyan"></label>
-            <label class="swatch custom" id="customSwatch"><input type="color" id="newColorCustom" value="#00e701" data-i18n-label="Custom color"></label>
-          </div>
+          <div class="swatches" role="radiogroup" aria-labelledby="colorLabel" id="newSwatches"></div>
         </div>
         <label class="check"><input type="checkbox" class="switch" role="switch" id="newTts"> <span data-i18n>Read the viewer's message aloud (text-to-speech). The sound becomes optional.</span></label>
       </form>
@@ -699,6 +689,7 @@
     document.querySelectorAll('.file-pick:not(.has) .btn').forEach((el) => { el.textContent = t('Choose file…'); });
     document.querySelectorAll('.lang-btn').forEach((el) => { el.textContent = lang === 'tr' ? 'English' : 'Türkçe'; });
     syncTheme();
+    $('newSwatches').innerHTML = swatchesHtml('newColor', $('newSwatches').firstChild ? swatchValue($('newSwatches')) : DEFAULT_COLOR);
     if (me) render(me, true);
   }
   document.querySelectorAll('.lang-btn').forEach((el) => el.addEventListener('click', () => {
@@ -1115,6 +1106,15 @@
     firstRender = false;
   }
 
+  const DEFAULT_COLOR = '#00e701';
+  const COLORS = [['#00e701', 'Green'], ['#2f80ed', 'Blue'], ['#9b51e0', 'Purple'], ['#eb2f96', 'Pink'], ['#f5222d', 'Red'], ['#fa8c16', 'Orange'], ['#fadb14', 'Yellow'], ['#13c2c2', 'Cyan']];
+  function swatchesHtml(name, selected = DEFAULT_COLOR) {
+    const preset = COLORS.some(([c]) => c === selected);
+    return COLORS.map(([c, label]) => `<label class="swatch" style="--c:${c}"><input type="radio" name="${name}" value="${c}"${c === selected ? ' checked' : ''} aria-label="${esc(t(label))}"></label>`).join('')
+      + `<label class="swatch custom${preset ? '' : ' on'}"${preset ? '' : ` style="--c:${esc(selected)}"`}><input type="color" value="${esc(preset ? DEFAULT_COLOR : selected)}" aria-label="${esc(t('Custom color'))}"></label>`;
+  }
+  const swatchValue = (box) => box.querySelector('input[type=radio]:checked')?.value || box.querySelector('input[type=color]').value;
+
   let knownAlertIds = null;
   function renderAlerts() {
     const list = me.alerts;
@@ -1136,6 +1136,10 @@
             <div><label for="ec-${a.id}">${t('Cost')}</label><input id="ec-${a.id}" type="number" min="1" step="1" value="${a.cost}"></div>
             <button class="primary" data-act="save">${t('Save')}</button>
             <button class="ghost" data-act="cancel">${t('Cancel')}</button>
+            <div class="color-field">
+              <span class="field-label" id="cl-${a.id}">${t('Color on Kick')}</span>
+              <div class="swatches" role="radiogroup" aria-labelledby="cl-${a.id}">${swatchesHtml('c-' + a.id, a.color || DEFAULT_COLOR)}</div>
+            </div>
           </div></div>`;
       }
       const vol = Math.round((a.volume ?? 1) * 100);
@@ -1193,23 +1197,18 @@
   $('newTts').addEventListener('change', (e) => newPick.setOptional(e.target.checked));
   $('linkTts').addEventListener('change', (e) => linkPick.setOptional(e.target.checked));
 
-  // Reward color: a preset swatch or the custom picker (the last swatch).
-  const DEFAULT_COLOR = '#00e701';
-  let newColor = DEFAULT_COLOR;
-  $('addForm').addEventListener('change', (e) => {
-    if (e.target.name === 'newColor') { newColor = e.target.value; $('customSwatch').classList.remove('on'); }
+  // Reward color pickers (new reward form and the edit row): preset swatches plus a custom color as the last one.
+  document.addEventListener('change', (e) => {
+    if (e.target.matches('.swatches input[type=radio]')) e.target.closest('.swatches').querySelector('.custom').classList.remove('on');
   });
-  $('newColorCustom').addEventListener('input', (e) => {
-    newColor = e.target.value;
-    document.querySelectorAll('input[name=newColor]').forEach((r) => { r.checked = false; });
-    $('customSwatch').classList.add('on');
-    $('customSwatch').style.setProperty('--c', newColor);
+  document.addEventListener('input', (e) => {
+    if (!e.target.matches('.swatch.custom input')) return;
+    const box = e.target.closest('.swatches');
+    box.querySelectorAll('input[type=radio]').forEach((r) => { r.checked = false; });
+    e.target.parentElement.classList.add('on');
+    e.target.parentElement.style.setProperty('--c', e.target.value);
   });
-  function resetColor() {
-    newColor = DEFAULT_COLOR;
-    document.querySelector(`input[name=newColor][value="${DEFAULT_COLOR}"]`).checked = true;
-    $('customSwatch').classList.remove('on');
-  }
+  const resetColor = () => { $('newSwatches').innerHTML = swatchesHtml('newColor'); };
 
   $('addForm').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1217,7 +1216,7 @@
       const sound = await newPick.sound(me.limits.maxSoundMb);
       const title = $('newTitle').value.trim();
       showAllAlerts = true;
-      render(await api('/api/alerts', 'POST', { title, cost: Number($('newCost').value), sound, tts: $('newTts').checked, color: newColor }), true);
+      render(await api('/api/alerts', 'POST', { title, cost: Number($('newCost').value), sound, tts: $('newTts').checked, color: swatchValue($('newSwatches')) }), true);
       $('newTitle').value = '';
       resetColor();
       $('newTts').checked = false;
@@ -1271,7 +1270,8 @@
         if (!r.overlays) toast('OBS is not connected. Add the link to OBS as a browser source.', true);
         else toast(`Playing "${a.title}" in OBS`);
       } else if (act === 'save') {
-        const state = await api(`/api/alerts/${id}`, 'PATCH', { title: $(`et-${id}`).value, cost: Number($(`ec-${id}`).value) });
+        const color = swatchValue(btn.closest('.alert').querySelector('.swatches'));
+        const state = await api(`/api/alerts/${id}`, 'PATCH', { title: $(`et-${id}`).value, cost: Number($(`ec-${id}`).value), color });
         editingId = null;
         render(state, true);
         toast('Saved');
