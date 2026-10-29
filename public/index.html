@@ -105,7 +105,7 @@
   input.switch:checked:active::after { transform: translateX(calc(1.125rem - 6px)); }
 
   /* Landing */
-  .top-right { display: flex; justify-content: flex-end; gap: .25rem; padding-top: 1rem; }
+  .top-right { position: relative; z-index: 6; display: flex; justify-content: flex-end; gap: .25rem; padding-top: 1rem; }
   .theme-btn { width: 2.125rem; padding: 0; font-size: 1.05rem; }
   /* The header is already a backdrop root, so its menu can't blur the page: give it a solid surface */
   .theme-wrap .menu { min-width: 10.5rem; background: var(--raised); }
@@ -162,8 +162,9 @@
   @keyframes drop { from { opacity: 0; transform: translateY(-10px); } }
   @keyframes pop { 40% { transform: scale(1.1); } }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .reveal > * { animation: rise 640ms cubic-bezier(.2,.9,.3,1) both; animation-delay: calc(var(--i, 0) * 55ms); }
-  .enter { animation: rise 480ms cubic-bezier(.2,.9,.3,1) both; animation-delay: calc(var(--i, 0) * 28ms); }
+  /* backwards, not both: a transform left behind after the animation would trap menus under later siblings */
+  .reveal > * { animation: rise 640ms cubic-bezier(.2,.9,.3,1) backwards; animation-delay: calc(var(--i, 0) * 55ms); }
+  .enter { animation: rise 480ms cubic-bezier(.2,.9,.3,1) backwards; animation-delay: calc(var(--i, 0) * 28ms); }
   ul.log li.enter { animation-name: drop; }
   .pop { animation: pop 420ms cubic-bezier(.3,1.4,.5,1); }
   .spinner { display: inline-block; width: 1em; height: 1em; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite; opacity: .8; }
