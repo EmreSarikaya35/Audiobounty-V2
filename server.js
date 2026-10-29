@@ -93,8 +93,12 @@ setInterval(() => {
 const TTS_MAX = 200; // Google's TTS endpoint rejects longer text
 const TTS_LANGS = ['tr', 'en'];
 
-// shortcut: substring match, so a banned word inside a longer word also blocks; switch to word matching if that bites.
-const hasBannedWord = (user, text) => (user.bannedWords || []).some((w) => text.toLocaleLowerCase('tr').includes(w));
+// Whole-word match, so "am" blocks "am" but not "tamam". An entry with spaces matches that exact phrase.
+const words = (s) => s.toLocaleLowerCase('tr').match(/[\p{L}\p{N}]+/gu) || [];
+function hasBannedWord(user, text) {
+  const padded = ` ${words(text).join(' ')} `;
+  return (user.bannedWords || []).some((w) => padded.includes(` ${words(w).join(' ')} `));
+}
 
 function playAlert(user, alert, who, text = '') {
   if (!alert.file && !text) return false;
