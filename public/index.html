@@ -32,7 +32,7 @@
   .ghost:hover { background: #22272c; color: var(--text); }
   .danger { color: var(--danger); }
   .small { min-height: 32px; padding: 5px 10px; font-size: 14px; }
-  input[type=text], input[type=number], select {
+  input[type=text], input[type=number], input[type=search], select {
     width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line);
     border-radius: 8px; padding: 8px 10px; font: inherit; min-height: 38px;
   }
@@ -87,6 +87,17 @@
   .empty { text-align: center; color: var(--muted); padding: 22px 12px; border: 1px dashed var(--line); border-radius: 10px; }
 
   form.add { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; grid-template-columns: 2fr 1fr 2fr auto; gap: 10px; align-items: end; }
+  .sound-pick { display: flex; gap: 6px; }
+  .sound-pick .file-pick { flex: 1; min-width: 0; }
+  .mi-btn { border: 1px solid var(--line); }
+  #miDialog { width: min(560px, calc(100vw - 32px)); max-height: min(640px, calc(100vh - 32px)); padding: 16px; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 12px; }
+  #miDialog::backdrop { background: rgba(0, 0, 0, .6); }
+  #miDialog h2 { margin: 0 0 12px; }
+  .mi-search { display: flex; gap: 8px; }
+  .mi-search input { flex: 1; min-width: 0; }
+  .mi-results { list-style: none; margin: 12px 0; padding: 0; max-height: 400px; overflow-y: auto; }
+  .mi-results li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .mi-results li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .file-pick { position: relative; }
   .file-pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
   .file-pick .btn { width: 100%; justify-content: flex-start; overflow: hidden; text-overflow: ellipsis; background: var(--bg); border: 1px solid var(--line); color: var(--muted); }
@@ -174,9 +185,12 @@
         <div><label for="newCost">Cost</label><input id="newCost" type="number" min="1" step="1" value="100" required></div>
         <div>
           <label for="newSound">Sound file</label>
-          <div class="file-pick" id="newSoundPick">
-            <input id="newSound" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.webm,audio/*" required>
-            <span class="btn">Choose file…</span>
+          <div class="sound-pick">
+            <div class="file-pick" id="newSoundPick">
+              <input id="newSound" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.webm,audio/*" required>
+              <span class="btn">Choose file…</span>
+            </div>
+            <button type="button" class="ghost mi-btn" title="Pick a sound from myinstants.com">myinstants</button>
           </div>
         </div>
         <button class="primary" type="submit" id="addBtn">Add</button>
@@ -188,9 +202,12 @@
           <div><label for="linkReward">Kick reward</label><select id="linkReward" required><option value="">Loading…</option></select></div>
           <div>
             <label for="linkSound">Sound file</label>
-            <div class="file-pick" id="linkSoundPick">
-              <input id="linkSound" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.webm,audio/*" required>
-              <span class="btn">Choose file…</span>
+            <div class="sound-pick">
+              <div class="file-pick" id="linkSoundPick">
+                <input id="linkSound" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.webm,audio/*" required>
+                <span class="btn">Choose file…</span>
+              </div>
+              <button type="button" class="ghost mi-btn" title="Pick a sound from myinstants.com">myinstants</button>
             </div>
           </div>
           <button class="primary" type="submit" id="linkBtn">Attach</button>
@@ -221,6 +238,15 @@
   <footer>Designed and built by Emre Sarıkaya.</footer>
 </main>
 <div id="toast" hidden role="status"></div>
+<dialog id="miDialog" aria-labelledby="miTitle">
+  <h2 id="miTitle">Pick a sound from myinstants.com</h2>
+  <form class="mi-search" id="miSearch">
+    <input id="miQuery" type="search" placeholder="Search, e.g. bruh" aria-label="Search myinstants.com" required>
+    <button class="primary" type="submit" id="miSearchBtn">Search</button>
+  </form>
+  <ul class="mi-results" id="miResults"></ul>
+  <button class="ghost small" type="button" id="miClose">Close</button>
+</dialog>
 
 <script>
   const $ = (id) => document.getElementById(id);
@@ -270,15 +296,75 @@
     try { await fn(); } catch (e) { toast(e.message, true); } finally { btn.disabled = false; btn.textContent = label; }
   }
 
+  // A sound comes from a local file or a myinstants pick; sound() returns what /api/alerts expects.
   function bindFilePick(pickId) {
     const wrap = $(pickId), input = wrap.querySelector('input'), label = wrap.querySelector('.btn');
-    input.addEventListener('change', () => {
-      const f = input.files[0];
-      wrap.classList.toggle('has', Boolean(f));
-      label.textContent = f ? f.name : 'Choose file…';
+    let remote = null;
+    const show = (name) => {
+      wrap.classList.toggle('has', Boolean(name));
+      label.textContent = name || 'Choose file…';
+      input.required = !remote;
+    };
+    input.addEventListener('change', () => { remote = null; show(input.files[0]?.name); });
+    wrap.nextElementSibling.addEventListener('click', async () => {
+      const r = await pickMyInstants();
+      if (!r) return;
+      remote = r;
+      input.value = '';
+      show('🔊 ' + r.title);
     });
-    return () => { input.value = ''; wrap.classList.remove('has'); label.textContent = 'Choose file…'; };
+    return {
+      reset() { remote = null; input.value = ''; show(''); },
+      sound(maxMb) {
+        if (remote) return { url: remote.url };
+        const f = input.files[0];
+        if (!f) throw new Error('Choose a sound file');
+        return readFile(f, maxMb);
+      },
+    };
   }
+
+  let miResolve = null, miList = [];
+  function pickMyInstants() {
+    return new Promise((resolve) => {
+      miResolve = resolve;
+      $('miDialog').showModal();
+      $('miQuery').focus();
+    });
+  }
+  $('miDialog').addEventListener('close', () => {
+    previewAudio?.pause();
+    miResolve?.(null);
+    miResolve = null;
+  });
+  $('miClose').addEventListener('click', () => $('miDialog').close());
+  $('miSearch').addEventListener('submit', (e) => {
+    e.preventDefault();
+    busy($('miSearchBtn'), async () => {
+      $('miResults').innerHTML = '';
+      miList = (await api('/api/myinstants?q=' + encodeURIComponent($('miQuery').value.trim()))).results;
+      $('miResults').innerHTML = miList.length
+        ? miList.map((r, i) => `<li><button class="small ghost" type="button" data-mi="play" data-i="${i}" aria-label="Listen to ${esc(r.title)}">▶</button>
+            <span title="${esc(r.title)}">${esc(r.title)}</span>
+            <button class="small primary" type="button" data-mi="use" data-i="${i}">Use</button></li>`).join('')
+        : '<li class="muted">No sounds found.</li>';
+    });
+  });
+  $('miResults').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-mi]');
+    if (!b) return;
+    const r = miList[b.dataset.i];
+    if (b.dataset.mi === 'play') {
+      previewAudio?.pause();
+      previewAudio = new Audio(r.url);
+      previewAudio.play().catch(() => toast('Could not play this sound', true));
+      return;
+    }
+    const resolve = miResolve;
+    miResolve = null;
+    $('miDialog').close();
+    resolve?.(r);
+  });
 
   function pickFile() {
     return new Promise((resolve) => {
@@ -353,6 +439,7 @@
           <button class="small" data-act="test" title="Play in OBS">Test</button>
           <button class="small ghost" data-act="preview" title="Listen here" aria-label="Listen here">▶</button>
           <button class="small ghost" data-act="sound">Change sound</button>
+          <button class="small ghost" data-act="mi" title="Change sound from myinstants.com">myinstants</button>
           ${a.managed ? `<button class="small ghost" data-act="edit">Edit</button>
           <button class="small ghost" data-act="toggle">${a.enabled === false ? 'Resume' : 'Pause'}</button>` : ''}
           <button class="small ghost danger" data-act="delete">Delete</button>
@@ -384,19 +471,17 @@
     }
   }
 
-  const resetNewSound = bindFilePick('newSoundPick');
-  const resetLinkSound = bindFilePick('linkSoundPick');
+  const newPick = bindFilePick('newSoundPick');
+  const linkPick = bindFilePick('linkSoundPick');
 
   $('addForm').addEventListener('submit', (e) => {
     e.preventDefault();
     busy($('addBtn'), async () => {
-      const file = $('newSound').files[0];
-      if (!file) throw new Error('Choose a sound file');
-      const sound = await readFile(file, me.limits.maxSoundMb);
+      const sound = await newPick.sound(me.limits.maxSoundMb);
       const title = $('newTitle').value.trim();
       render(await api('/api/alerts', 'POST', { title, cost: Number($('newCost').value), sound }), true);
       $('newTitle').value = '';
-      resetNewSound();
+      newPick.reset();
       toast(`"${title}" added and created on Kick`);
     });
   });
@@ -406,12 +491,10 @@
   $('linkForm').addEventListener('submit', (e) => {
     e.preventDefault();
     busy($('linkBtn'), async () => {
-      const file = $('linkSound').files[0];
       if (!$('linkReward').value) throw new Error('Choose a reward');
-      if (!file) throw new Error('Choose a sound file');
-      const sound = await readFile(file, me.limits.maxSoundMb);
+      const sound = await linkPick.sound(me.limits.maxSoundMb);
       render(await api('/api/alerts', 'POST', { rewardId: $('linkReward').value, sound }), true);
-      resetLinkSound();
+      linkPick.reset();
       loadKickRewards();
       toast('Sound attached');
     });
@@ -452,6 +535,11 @@
         const sound = await readFile(file, me.limits.maxSoundMb);
         render(await api(`/api/alerts/${id}`, 'PATCH', { sound }), true);
         toast('Sound changed');
+      } else if (act === 'mi') {
+        const r = await pickMyInstants();
+        if (!r) return;
+        render(await api(`/api/alerts/${id}`, 'PATCH', { sound: { url: r.url } }), true);
+        toast(`Sound changed to "${r.title}"`);
       } else if (act === 'delete') {
         const msg = a.managed ? `Delete "${a.title}"? The reward will also be removed from your Kick channel.` : `Remove the sound from "${a.title}"? The reward stays on Kick.`;
         if (!confirm(msg)) return;

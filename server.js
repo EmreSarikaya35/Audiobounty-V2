@@ -250,6 +250,40 @@ function saveSound(user, alertId, sound) {
   return name;
 }
 
+const MYINSTANTS = 'https://www.myinstants.com';
+const unescapeHtml = (s) => s.replace(/&(amp|lt|gt|quot|#39|#x27);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", '#x27': "'" }[e]));
+
+// shortcut: myinstants has no public API, so this parses its search page HTML; update the regex if their markup changes.
+async function searchMyInstants(q) {
+  const res = await fetch(`${MYINSTANTS}/en/search/?name=${encodeURIComponent(q)}`, {
+    headers: { 'User-Agent': 'Mozilla/5.0' },
+    signal: AbortSignal.timeout(10000),
+  }).catch(() => null);
+  if (!res?.ok) throw new HttpError(502, 'myinstants.com is not responding, try again');
+  const html = await res.text();
+  const results = [];
+  for (const m of html.matchAll(/play\('(\/media\/sounds\/[^']+)'[\s\S]*?class="instant-link[^"]*">([^<]*)</g)) {
+    results.push({ url: MYINSTANTS + m[1], title: unescapeHtml(m[2].trim()) });
+  }
+  return results.slice(0, 40);
+}
+
+// Downloads a myinstants sound on the server so the streamer never saves it locally. Only myinstants
+// sound URLs are accepted, so this can't be used to make the server fetch arbitrary addresses.
+async function fetchMyInstantsSound(url) {
+  let u;
+  try { u = new URL(url); } catch { throw new HttpError(400, 'Invalid sound link'); }
+  if (u.origin !== MYINSTANTS || !u.pathname.startsWith('/media/sounds/')) throw new HttpError(400, 'Only myinstants.com sounds can be used');
+  const res = await fetch(u, { redirect: 'error', signal: AbortSignal.timeout(15000) }).catch(() => null);
+  if (!res?.ok) throw new HttpError(502, 'Could not get the sound from myinstants.com');
+  if (Number(res.headers.get('content-length')) > MAX_SOUND_MB * 1024 * 1024) throw new HttpError(413, `Sound file can be at most ${MAX_SOUND_MB} MB`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  return { name: decodeURIComponent(path.basename(u.pathname)), data: buf.toString('base64') };
+}
+
+// A sound is either an uploaded file ({ name, data }) or a myinstants pick ({ url }).
+const resolveSound = (sound) => (sound?.url ? fetchMyInstantsSound(sound.url) : sound);
+
 function removeSound(user, file) {
   if (file) fs.rmSync(path.join(store.soundDir(user), path.basename(file)), { force: true });
 }
@@ -299,6 +333,12 @@ async function handleApi(req, res, user, p) {
     });
   }
 
+  if (p === '/api/myinstants' && m === 'GET') {
+    const q = new URL(req.url, PUBLIC_URL).searchParams.get('q')?.trim().slice(0, 100);
+    if (!q) throw new HttpError(400, 'Type something to search');
+    return sendJson(res, 200, { results: await searchMyInstants(q) });
+  }
+
   if (p === '/api/alerts' && m === 'POST') {
     const b = await readJson(req);
     if (user.alerts.length >= MAX_ALERTS) throw new HttpError(400, `You can add at most ${MAX_ALERTS} sound rewards`);
@@ -324,7 +364,7 @@ async function handleApi(req, res, user, p) {
       alert = { id, rewardId: reward?.id, title, cost, managed: true };
     }
     try {
-      alert.file = saveSound(user, id, b.sound);
+      alert.file = saveSound(user, id, await resolveSound(b.sound));
     } catch (e) {
       if (alert.managed && alert.rewardId) await kick.deleteReward(user, alert.rewardId).catch(() => {});
       throw e;
@@ -363,7 +403,7 @@ async function handleApi(req, res, user, p) {
       if (b.volume !== undefined) alert.volume = validVolume(b.volume);
       if (b.sound) {
         const old = alert.file;
-        alert.file = saveSound(user, alert.id, b.sound);
+        alert.file = saveSound(user, alert.id, await resolveSound(b.sound));
         removeSound(user, old);
       }
       store.save(user);
