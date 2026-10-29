@@ -90,15 +90,26 @@ setInterval(() => {
   for (const set of overlays.values()) for (const res of set) res.write(': ping\n\n');
 }, 25000);
 
-function playAlert(user, alert, who) {
-  if (!alert.file) return false;
+const TTS_MAX = 200; // Google's TTS endpoint rejects longer text
+const TTS_LANGS = ['tr', 'en'];
+
+// shortcut: substring match, so a banned word inside a longer word also blocks; switch to word matching if that bites.
+const hasBannedWord = (user, text) => (user.bannedWords || []).some((w) => text.toLocaleLowerCase('tr').includes(w));
+
+function playAlert(user, alert, who, text = '') {
+  if (!alert.file && !text) return false;
   const volume = Math.max(0, Math.min(1, (alert.volume ?? 1) * (user.masterVolume ?? 1)));
   sendToOverlays(user, {
     type: 'play',
-    url: `/media/${user.overlayKey}/${encodeURIComponent(alert.file)}`,
+    url: alert.file ? `/media/${user.overlayKey}/${encodeURIComponent(alert.file)}` : null,
+    tts: text ? `/tts/${user.overlayKey}?lang=${user.ttsLang || 'tr'}&text=${encodeURIComponent(text)}` : null,
+    text,
     volume,
     reward: alert.title,
     user: who,
+    maxDuration: user.maxDuration || 0,
+    normalize: Boolean(user.normalize),
+    card: user.card !== false,
   });
   return true;
 }
@@ -124,7 +135,16 @@ function handleRedemption(evt) {
     user.alerts.find((a) => norm(a.title) === norm(evt.reward?.title));
   if (!alert) return;
   if (alert.enabled === false) return;
-  playAlert(user, alert, who);
+  if (user.muted) return ulog(user, `${who || 'Someone'} redeemed "${alert.title}" (muted)`);
+  let text = '';
+  if (alert.tts) {
+    text = String(evt.user_input || '').replace(/https?:\/\/\S+/g, '').trim().slice(0, TTS_MAX);
+    if (text && hasBannedWord(user, text)) {
+      ulog(user, `Message from ${who || 'someone'} was not read: it has a banned word`);
+      text = '';
+    }
+  }
+  if (!playAlert(user, alert, who, text)) return;
   ulog(user, `${who || 'Someone'} redeemed "${alert.title}"${overlayCount(user) ? '' : ' (OBS was not connected!)'}`);
 }
 
@@ -253,9 +273,10 @@ function saveSound(user, alertId, sound) {
 const MYINSTANTS = 'https://www.myinstants.com';
 const unescapeHtml = (s) => s.replace(/&(amp|lt|gt|quot|#39|#x27);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", '#x27': "'" }[e]));
 
-// shortcut: myinstants has no public API, so this parses its search page HTML; update the regex if their markup changes.
+// shortcut: myinstants has no public API, so this parses its search/trending page HTML; update the regex if their markup changes.
 async function searchMyInstants(q) {
-  const res = await fetch(`${MYINSTANTS}/en/search/?name=${encodeURIComponent(q)}`, {
+  const page = q ? `/en/search/?name=${encodeURIComponent(q)}` : '/en/index/tr/';
+  const res = await fetch(MYINSTANTS + page, {
     headers: { 'User-Agent': 'Mozilla/5.0' },
     signal: AbortSignal.timeout(10000),
   }).catch(() => null);
@@ -270,10 +291,15 @@ async function searchMyInstants(q) {
 
 // Downloads a myinstants sound on the server so the streamer never saves it locally. Only myinstants
 // sound URLs are accepted, so this can't be used to make the server fetch arbitrary addresses.
-async function fetchMyInstantsSound(url) {
+function myInstantsUrl(url) {
   let u;
   try { u = new URL(url); } catch { throw new HttpError(400, 'Invalid sound link'); }
   if (u.origin !== MYINSTANTS || !u.pathname.startsWith('/media/sounds/')) throw new HttpError(400, 'Only myinstants.com sounds can be used');
+  return u;
+}
+
+async function fetchMyInstantsSound(url) {
+  const u = myInstantsUrl(url);
   const res = await fetch(u, { redirect: 'error', signal: AbortSignal.timeout(15000) }).catch(() => null);
   if (!res?.ok) throw new HttpError(502, 'Could not get the sound from myinstants.com');
   if (Number(res.headers.get('content-length')) > MAX_SOUND_MB * 1024 * 1024) throw new HttpError(413, `Sound file can be at most ${MAX_SOUND_MB} MB`);
@@ -314,6 +340,13 @@ function meState(user) {
     overlayKey: user.overlayKey,
     overlays: overlayCount(user),
     masterVolume: user.masterVolume ?? 1,
+    muted: Boolean(user.muted),
+    maxDuration: user.maxDuration || 0,
+    normalize: Boolean(user.normalize),
+    card: user.card !== false,
+    ttsLang: user.ttsLang || 'tr',
+    bannedWords: user.bannedWords || [],
+    favorites: user.miFavorites || [],
     subscribed: Boolean(user.subscription),
     alerts: user.alerts,
     logs: userLogs.get(user.id) || [],
@@ -335,36 +368,50 @@ async function handleApi(req, res, user, p) {
 
   if (p === '/api/myinstants' && m === 'GET') {
     const q = new URL(req.url, PUBLIC_URL).searchParams.get('q')?.trim().slice(0, 100);
-    if (!q) throw new HttpError(400, 'Type something to search');
     return sendJson(res, 200, { results: await searchMyInstants(q) });
+  }
+
+  if (p === '/api/myinstants/favorites' && m === 'POST') {
+    const b = await readJson(req);
+    const url = myInstantsUrl(b.url).href;
+    const favs = (user.miFavorites || []).filter((f) => f.url !== url);
+    if (b.on) {
+      if (favs.length >= 50) throw new HttpError(400, 'You can save at most 50 favorites');
+      favs.unshift({ url, title: String(b.title || '').trim().slice(0, 100) || 'Sound' });
+    }
+    user.miFavorites = favs;
+    store.save(user);
+    return sendJson(res, 200, meState(user));
   }
 
   if (p === '/api/alerts' && m === 'POST') {
     const b = await readJson(req);
     if (user.alerts.length >= MAX_ALERTS) throw new HttpError(400, `You can add at most ${MAX_ALERTS} sound rewards`);
     const id = crypto.randomBytes(6).toString('hex');
+    const tts = Boolean(b.tts);
+    if (!b.sound && !tts) throw new HttpError(400, 'Choose a sound file');
     let alert;
     if (b.rewardId) {
       // Attach a sound to a reward that already exists on Kick
       const reward = (await kick.listRewards(user)).find((r) => r.id === b.rewardId);
       if (!reward) throw new HttpError(404, 'This reward was not found on your Kick channel');
       if (user.alerts.some((a) => a.rewardId === reward.id)) throw new HttpError(400, 'This reward already has a sound');
-      alert = { id, rewardId: reward.id, title: reward.title, cost: reward.cost, managed: false };
+      alert = { id, rewardId: reward.id, title: reward.title, cost: reward.cost, managed: false, tts };
     } else {
       const title = validTitle(b.title);
       const cost = validCost(b.cost);
       if (user.alerts.some((a) => norm(a.title) === norm(title))) throw new HttpError(400, 'A reward with this name already exists');
-      if (!b.sound) throw new HttpError(400, 'Choose a sound file');
       const reward = await kick.createReward(user, {
         title,
         cost,
-        description: '🔊 Plays a sound on stream',
+        description: tts ? '🗣️ Your message is read aloud on stream' : '🔊 Plays a sound on stream',
+        is_user_input_required: tts,
         should_redemptions_skip_request_queue: true,
       });
-      alert = { id, rewardId: reward?.id, title, cost, managed: true };
+      alert = { id, rewardId: reward?.id, title, cost, managed: true, tts };
     }
     try {
-      alert.file = saveSound(user, id, await resolveSound(b.sound));
+      alert.file = b.sound ? saveSound(user, id, await resolveSound(b.sound)) : null;
     } catch (e) {
       if (alert.managed && alert.rewardId) await kick.deleteReward(user, alert.rewardId).catch(() => {});
       throw e;
@@ -383,7 +430,7 @@ async function handleApi(req, res, user, p) {
     if (!alert) throw new HttpError(404, 'Reward not found');
 
     if (am[2] && m === 'POST') {
-      playAlert(user, alert, 'test');
+      playAlert(user, alert, 'test', alert.tts ? (user.ttsLang === 'en' ? 'This is a test message' : 'Bu bir test mesajı') : '');
       return sendJson(res, 200, { ok: true, overlays: overlayCount(user) });
     }
 
@@ -393,12 +440,18 @@ async function handleApi(req, res, user, p) {
       if (b.title !== undefined && b.title !== alert.title) kickFields.title = validTitle(b.title);
       if (b.cost !== undefined && Number(b.cost) !== alert.cost) kickFields.cost = validCost(b.cost);
       if (b.enabled !== undefined && Boolean(b.enabled) !== alert.enabled) kickFields.is_enabled = Boolean(b.enabled);
+      if (b.tts !== undefined && Boolean(b.tts) !== Boolean(alert.tts)) {
+        if (!b.tts && !alert.file && !b.sound) throw new HttpError(400, 'Add a sound before turning off text-to-speech');
+        if (alert.managed) kickFields.is_user_input_required = Boolean(b.tts);
+        else alert.tts = Boolean(b.tts);
+      }
       if (Object.keys(kickFields).length) {
         if (!alert.managed) throw new HttpError(400, 'This reward was created in the Kick dashboard; change its name, cost and status on Kick');
         await kick.updateReward(user, alert.rewardId, kickFields);
         if (kickFields.title) alert.title = kickFields.title;
         if (kickFields.cost) alert.cost = kickFields.cost;
         if ('is_enabled' in kickFields) alert.enabled = kickFields.is_enabled;
+        if ('is_user_input_required' in kickFields) alert.tts = kickFields.is_user_input_required;
       }
       if (b.volume !== undefined) alert.volume = validVolume(b.volume);
       if (b.sound) {
@@ -423,8 +476,27 @@ async function handleApi(req, res, user, p) {
   if (p === '/api/settings' && m === 'POST') {
     const b = await readJson(req);
     if (b.masterVolume !== undefined) user.masterVolume = validVolume(b.masterVolume);
+    if (b.muted !== undefined) {
+      user.muted = Boolean(b.muted);
+      if (user.muted) sendToOverlays(user, { type: 'clear' });
+      ulog(user, user.muted ? 'All sounds muted' : 'Sounds unmuted');
+    }
+    if (b.maxDuration !== undefined) user.maxDuration = Math.max(0, Math.min(60, Math.round(Number(b.maxDuration)) || 0));
+    if (b.normalize !== undefined) user.normalize = Boolean(b.normalize);
+    if (b.card !== undefined) user.card = Boolean(b.card);
+    if (b.ttsLang !== undefined && TTS_LANGS.includes(b.ttsLang)) user.ttsLang = b.ttsLang;
+    if (b.bannedWords !== undefined) {
+      user.bannedWords = [...new Set(String(b.bannedWords).split(/[,\n]/).map((w) => w.trim().toLocaleLowerCase('tr')).filter(Boolean))]
+        .slice(0, 200)
+        .map((w) => w.slice(0, 40));
+    }
     store.save(user);
     return sendJson(res, 200, meState(user));
+  }
+
+  if ((p === '/api/overlay/skip' || p === '/api/overlay/clear') && m === 'POST') {
+    sendToOverlays(user, { type: p.endsWith('skip') ? 'skip' : 'clear' });
+    return sendJson(res, 200, { ok: true, overlays: overlayCount(user) });
   }
 
   if (p === '/api/overlay/regenerate' && m === 'POST') {
@@ -493,6 +565,21 @@ const server = http.createServer(async (req, res) => {
       overlays.get(user.id).add(res);
       req.on('close', () => overlays.get(user.id)?.delete(res));
       return;
+    }
+
+    if ((m = p.match(/^\/tts\/([\w-]+)$/))) {
+      // Proxies Google Translate's TTS so OBS gets same-origin audio. shortcut: unofficial endpoint; swap for a paid TTS API if Google blocks it.
+      const text = url.searchParams.get('text') || '';
+      const lang = url.searchParams.get('lang');
+      if (!store.getByOverlayKey(m[1]) || !text || text.length > TTS_MAX || !TTS_LANGS.includes(lang)) throw new HttpError(400, 'Invalid request');
+      const r = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${lang}&q=${encodeURIComponent(text)}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: AbortSignal.timeout(10000),
+      }).catch(() => null);
+      if (!r?.ok) throw new HttpError(502, 'Text-to-speech is not available right now');
+      const buf = Buffer.from(await r.arrayBuffer());
+      res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Content-Length': buf.length, 'Cache-Control': 'no-store' });
+      return res.end(buf);
     }
 
     if ((m = p.match(/^\/media\/([\w-]+)\/([^/]+)$/))) {

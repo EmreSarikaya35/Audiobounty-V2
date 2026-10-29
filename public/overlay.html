@@ -11,31 +11,96 @@
     background: rgba(0,0,0,.6); padding: 6px 10px; border-radius: 6px;
   }
   body.debug #status { display: block; }
+  #card {
+    position: fixed; left: 50%; top: 24px; max-width: min(640px, calc(100vw - 48px));
+    transform: translate(-50%, -16px); opacity: 0; transition: opacity .25s, transform .25s;
+    font: 600 22px/1.35 system-ui, sans-serif; color: #fff; text-align: center;
+    background: rgba(14,16,18,.88); border: 2px solid #53fc18; border-radius: 14px; padding: 12px 20px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.5);
+  }
+  #card.on { opacity: 1; transform: translate(-50%, 0); }
+  #card b { color: #53fc18; }
+  #card p { margin: 6px 0 0; font-weight: 500; font-size: 20px; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
 <div id="status">connecting…</div>
+<div id="card"><div id="cardHead"></div><p id="cardText"></p></div>
 <script>
   // ?debug=1 shows the connection status and the sound being played
   const params = new URLSearchParams(location.search);
   if (params.has('debug')) document.body.classList.add('debug');
   const statusEl = document.getElementById('status');
+  const card = document.getElementById('card');
   const queue = [];
+  const gains = new Map();
   let playing = false;
+  let skipping = false;
+  let current = null; // stop() of the audio playing now
 
   function show(text) { statusEl.textContent = text; }
 
-  function next() {
+  function showCard(item) {
+    if (!item.card) return;
+    document.getElementById('cardHead').textContent = '';
+    const who = document.createElement('b');
+    who.textContent = item.user && item.user !== 'test' ? item.user : 'Test';
+    document.getElementById('cardHead').append(who, ` 🔊 ${item.reward}`);
+    const p = document.getElementById('cardText');
+    p.textContent = item.text || '';
+    p.hidden = !item.text;
+    card.classList.add('on');
+  }
+
+  // Loudness normalization: measures the sound's RMS once and turns loud sounds down to a common level.
+  // An <audio> element can't go above volume 1, so quiet sounds are left as they are.
+  async function loudnessGain(url) {
+    if (gains.has(url)) return gains.get(url);
+    let gain = 1;
+    try {
+      const buf = await (await fetch(url)).arrayBuffer();
+      const audio = await new OfflineAudioContext(1, 1, 44100).decodeAudioData(buf);
+      const data = audio.getChannelData(0);
+      let sum = 0, n = 0;
+      for (let i = 0; i < data.length; i += 16) { sum += data[i] * data[i]; n++; }
+      const rms = Math.sqrt(sum / Math.max(n, 1));
+      if (rms > 0) gain = Math.min(1, 0.12 / rms); // 0.12 RMS ≈ -18 dBFS
+    } catch {}
+    gains.set(url, gain);
+    return gain;
+  }
+
+  function playUrl(url, volume, maxSec) {
+    return new Promise((resolve) => {
+      const audio = new Audio(url);
+      audio.volume = Math.max(0, Math.min(1, volume));
+      let timer = 0;
+      const stop = () => { clearTimeout(timer); audio.pause(); current = null; resolve(); };
+      if (maxSec > 0) timer = setTimeout(stop, maxSec * 1000);
+      audio.onended = stop;
+      audio.onerror = stop;
+      current = stop;
+      audio.play().catch(stop);
+    });
+  }
+
+  async function next() {
     if (playing || !queue.length) return;
     const item = queue.shift();
     playing = true;
-    const audio = new Audio(item.url);
-    audio.volume = item.volume ?? 1;
+    skipping = false;
     show(`▶ ${item.reward}${item.user ? ' — ' + item.user : ''}`);
-    const done = () => { playing = false; show('connected'); next(); };
-    audio.onended = done;
-    audio.onerror = done;
-    audio.play().catch(done);
+    showCard(item);
+    const volume = item.volume ?? 1;
+    if (item.url && !skipping) {
+      const gain = item.normalize ? await loudnessGain(item.url) : 1;
+      if (!skipping) await playUrl(item.url, volume * gain, item.maxDuration);
+    }
+    if (item.tts && !skipping) await playUrl(item.tts, volume, 0);
+    card.classList.remove('on');
+    playing = false;
+    show('connected');
+    setTimeout(next, 300);
   }
 
   function connect() {
@@ -48,6 +113,10 @@
       if (msg.type === 'play' && queue.length < 30) {
         queue.push(msg);
         next();
+      } else if (msg.type === 'skip' || msg.type === 'clear') {
+        if (msg.type === 'clear') queue.length = 0;
+        skipping = true;
+        current?.();
       }
     };
   }

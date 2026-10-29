@@ -79,6 +79,7 @@
   .alerts { display: flex; flex-direction: column; gap: 8px; }
   .alert { background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; grid-template-columns: 1fr auto; gap: 10px 12px; align-items: center; }
   .alert.off { opacity: .6; }
+  .alert > .row { grid-column: 1 / -1; }
   .alert .title { font-weight: 650; overflow-wrap: anywhere; }
   .alert .meta { font-size: 13px; color: var(--muted); }
   .alert .vol { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
@@ -112,7 +113,17 @@
   ul.log li:first-child { border-top: 0; }
   ul.log time { color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
 
-  .settings { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: end; }
+  .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: end; }
+  .settings .wide { grid-column: 1 / -1; }
+  textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; resize: vertical; }
+  label.check { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--text); margin: 0; cursor: pointer; }
+  label.check input { margin-top: 3px; accent-color: var(--accent); }
+  form.add label.check { grid-column: 1 / -1; }
+  .top-right { display: flex; justify-content: flex-end; padding-top: 16px; }
+  #muteBtn.muted { background: var(--danger); color: #fff; font-weight: 650; }
+  .mi-tabs { margin-top: 10px; }
+  .mi-tabs .on { background: #2a2f35; color: var(--text); }
+  .mi-results .fav { color: var(--warn); }
   footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 32px; }
 
   #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #2d3339; color: var(--text); padding: 10px 16px; border-radius: 10px; max-width: calc(100% - 32px); box-shadow: 0 6px 24px rgba(0,0,0,.4); z-index: 10; }
@@ -131,15 +142,16 @@
 
   <!-- Logged out -->
   <div id="landing" hidden>
+    <div class="top-right"><button class="ghost small lang-btn" type="button" aria-label="Language / Dil">TR / EN</button></div>
     <div class="hero">
-      <h1>Let your viewers play sounds<br>on stream with channel points</h1>
-      <p>Create a reward, upload a sound, paste the link into OBS. Nothing to download, nothing to configure.</p>
-      <a class="btn primary" href="/auth/login">Log in with Kick</a>
+      <h1 data-i18n>Let your viewers play sounds<br>on stream with channel points</h1>
+      <p data-i18n>Create a reward, upload a sound, paste the link into OBS. Nothing to download, nothing to configure.</p>
+      <a class="btn primary" href="/auth/login" data-i18n>Log in with Kick</a>
     </div>
     <div class="how">
-      <div><b><i>1</i>Log in</b><span>Connect your Kick account. Your password never reaches us.</span></div>
-      <div><b><i>2</i>Add a sound</b><span>Pick a reward name, cost and sound. The reward is created on Kick automatically.</span></div>
-      <div><b><i>3</i>Add to OBS</b><span>Add your personal link to OBS as a browser source. Done.</span></div>
+      <div><b><i>1</i><span data-i18n>Log in</span></b><span data-i18n>Connect your Kick account. Your password never reaches us.</span></div>
+      <div><b><i>2</i><span data-i18n>Add a sound</span></b><span data-i18n>Pick a reward name, cost and sound. The reward is created on Kick automatically.</span></div>
+      <div><b><i>3</i><span data-i18n>Add to OBS</span></b><span data-i18n>Add your personal link to OBS as a browser source. Done.</span></div>
     </div>
   </div>
 
@@ -149,103 +161,137 @@
       <span class="brand">🔊</span>
       <img id="avatar" alt="">
       <span class="name" id="userName"></span>
-      <button class="ghost small" id="logoutBtn">Log out</button>
+      <button class="ghost small lang-btn" type="button" aria-label="Language / Dil">TR / EN</button>
+      <button class="ghost small" id="logoutBtn" data-i18n>Log out</button>
     </header>
 
     <div id="bannerRelogin" class="banner err" hidden>
-      <span>Your Kick connection has expired. Log in again to keep your sounds working.</span>
-      <a class="btn primary small" href="/auth/login">Log in again</a>
+      <span data-i18n>Your Kick connection has expired. Log in again to keep your sounds working.</span>
+      <a class="btn primary small" href="/auth/login" data-i18n>Log in again</a>
     </div>
     <div id="bannerRepair" class="banner warn" hidden>
-      <span>We're not receiving reward notifications from Kick. Sounds won't play when rewards are redeemed.</span>
-      <button class="primary small" id="repairBtn">Repair</button>
+      <span data-i18n>We're not receiving reward notifications from Kick. Sounds won't play when rewards are redeemed.</span>
+      <button class="primary small" id="repairBtn" data-i18n>Repair</button>
+    </div>
+    <div id="bannerMuted" class="banner warn" hidden>
+      <span data-i18n>All sounds are muted. Redemptions are logged but nothing plays in OBS.</span>
     </div>
 
     <section class="card">
-      <h2>Your OBS link <span id="obsStatus" class="status off">OBS not connected</span></h2>
-      <p class="lead">This link is personal. Don't share it with anyone.</p>
+      <h2><span data-i18n>Your OBS link</span> <span id="obsStatus" class="status off"></span></h2>
+      <p class="lead" data-i18n>This link is personal. Don't share it with anyone.</p>
       <div class="linkbox">
         <code id="overlayUrl">••••••••</code>
-        <button class="primary" id="copyOverlay">Copy</button>
+        <button class="primary" id="copyOverlay" data-i18n>Copy</button>
       </div>
       <ol class="steps">
-        <li>In OBS, click <b>+</b> under <b>Sources</b> and choose <b>Browser</b>.</li>
-        <li>Paste the link into the <b>URL</b> field and click <b>OK</b>.</li>
-        <li>Tick <b>Control audio via OBS</b> to see the sound in the OBS mixer.</li>
+        <li data-i18n>In OBS, click <b>+</b> under <b>Sources</b> and choose <b>Browser</b>.</li>
+        <li data-i18n>Paste the link into the <b>URL</b> field and click <b>OK</b>.</li>
+        <li data-i18n>Tick <b>Control audio via OBS</b> to see the sound in the OBS mixer.</li>
       </ol>
     </section>
 
     <section class="card">
-      <h2>Sound rewards</h2>
-      <p class="lead">Rewards you add here are created on your Kick channel automatically. When a viewer redeems one, its sound plays in OBS.</p>
+      <h2 data-i18n>Live controls</h2>
+      <p class="lead" data-i18n>Use these during the stream.</p>
+      <div class="row">
+        <button id="muteBtn"></button>
+        <button id="skipBtn" data-i18n>Skip current sound</button>
+        <button id="clearBtn" class="ghost" data-i18n>Clear queue</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n>Sound rewards</h2>
+      <p class="lead" data-i18n>Rewards you add here are created on your Kick channel automatically. When a viewer redeems one, its sound plays in OBS.</p>
       <div class="alerts" id="alerts"></div>
 
       <form class="add" id="addForm" autocomplete="off">
-        <div><label for="newTitle">Reward name</label><input id="newTitle" type="text" maxlength="50" placeholder="e.g. sound1" required></div>
-        <div><label for="newCost">Cost</label><input id="newCost" type="number" min="1" step="1" value="100" required></div>
+        <div><label for="newTitle" data-i18n>Reward name</label><input id="newTitle" type="text" maxlength="50" data-i18n-ph="e.g. sound1" required></div>
+        <div><label for="newCost" data-i18n>Cost</label><input id="newCost" type="number" min="1" step="1" value="100" required></div>
         <div>
-          <label for="newSound">Sound file</label>
+          <label for="newSound" data-i18n>Sound file</label>
           <div class="sound-pick">
             <div class="file-pick" id="newSoundPick">
               <input id="newSound" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.webm,audio/*" required>
-              <span class="btn">Choose file…</span>
+              <span class="btn"></span>
             </div>
-            <button type="button" class="ghost mi-btn" title="Pick a sound from myinstants.com">myinstants</button>
+            <button type="button" class="ghost mi-btn" data-i18n-title="Pick a sound from myinstants.com">myinstants</button>
           </div>
         </div>
-        <button class="primary" type="submit" id="addBtn">Add</button>
+        <button class="primary" type="submit" id="addBtn" data-i18n>Add</button>
+        <label class="check"><input type="checkbox" id="newTts"> <span data-i18n>Read the viewer's message aloud (text-to-speech). The sound becomes optional.</span></label>
       </form>
 
       <details class="link-existing" id="linkDetails">
-        <summary>Add a sound to a reward that already exists on Kick</summary>
+        <summary data-i18n>Add a sound to a reward that already exists on Kick</summary>
         <form class="add" id="linkForm" autocomplete="off">
-          <div><label for="linkReward">Kick reward</label><select id="linkReward" required><option value="">Loading…</option></select></div>
+          <div><label for="linkReward" data-i18n>Kick reward</label><select id="linkReward" required></select></div>
           <div>
-            <label for="linkSound">Sound file</label>
+            <label for="linkSound" data-i18n>Sound file</label>
             <div class="sound-pick">
               <div class="file-pick" id="linkSoundPick">
                 <input id="linkSound" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.webm,audio/*" required>
-                <span class="btn">Choose file…</span>
+                <span class="btn"></span>
               </div>
-              <button type="button" class="ghost mi-btn" title="Pick a sound from myinstants.com">myinstants</button>
+              <button type="button" class="ghost mi-btn" data-i18n-title="Pick a sound from myinstants.com">myinstants</button>
             </div>
           </div>
-          <button class="primary" type="submit" id="linkBtn">Attach</button>
+          <button class="primary" type="submit" id="linkBtn" data-i18n>Attach</button>
+          <label class="check"><input type="checkbox" id="linkTts"> <span data-i18n>Read the viewer's message aloud (the reward must ask viewers for text on Kick)</span></label>
         </form>
       </details>
     </section>
 
     <section class="card">
-      <h2>Recent activity</h2>
+      <h2 data-i18n>Recent activity</h2>
       <ul class="log" id="log"></ul>
     </section>
 
     <section class="card">
-      <h2>Settings</h2>
+      <h2 data-i18n>Settings</h2>
       <div class="settings">
         <div>
-          <label for="masterVolume">Master volume: <span id="masterVal"></span></label>
+          <label for="masterVolume"><span data-i18n>Master volume</span>: <span id="masterVal"></span></label>
           <input id="masterVolume" type="range" min="0" max="1" step="0.05">
         </div>
-        <div class="row">
-          <button class="small" id="regenBtn">Regenerate OBS link</button>
-          <button class="small ghost danger" id="deleteAccountBtn">Delete account</button>
+        <div>
+          <label for="maxDuration" data-i18n>Max sound length (seconds, 0 = no limit)</label>
+          <input id="maxDuration" type="number" min="0" max="60" step="1" data-setting="maxDuration">
+        </div>
+        <label class="check"><input type="checkbox" id="normalize" data-setting="normalize"> <span data-i18n>Even out loudness (turns down sounds that are much louder than the rest)</span></label>
+        <label class="check"><input type="checkbox" id="card" data-setting="card"> <span data-i18n>Show who redeemed it on stream</span></label>
+        <div>
+          <label for="ttsLang" data-i18n>Text-to-speech voice</label>
+          <select id="ttsLang" data-setting="ttsLang"><option value="tr">Türkçe</option><option value="en">English</option></select>
+        </div>
+        <div class="wide">
+          <label for="bannedWords" data-i18n>Banned words for text-to-speech (comma or line separated). Messages with these words are not read.</label>
+          <textarea id="bannedWords" rows="3" data-setting="bannedWords"></textarea>
+        </div>
+        <div class="row wide">
+          <button class="small" id="regenBtn" data-i18n>Regenerate OBS link</button>
+          <button class="small ghost danger" id="deleteAccountBtn" data-i18n>Delete account</button>
         </div>
       </div>
     </section>
   </div>
 
-  <footer>Designed and built by Emre Sarıkaya.</footer>
+  <footer data-i18n>Designed and built by Emre Sarıkaya.</footer>
 </main>
 <div id="toast" hidden role="status"></div>
 <dialog id="miDialog" aria-labelledby="miTitle">
-  <h2 id="miTitle">Pick a sound from myinstants.com</h2>
+  <h2 id="miTitle" data-i18n>Pick a sound from myinstants.com</h2>
   <form class="mi-search" id="miSearch">
-    <input id="miQuery" type="search" placeholder="Search, e.g. bruh" aria-label="Search myinstants.com" required>
-    <button class="primary" type="submit" id="miSearchBtn">Search</button>
+    <input id="miQuery" type="search" data-i18n-ph="Search, e.g. bruh" aria-label="myinstants.com">
+    <button class="primary" type="submit" id="miSearchBtn" data-i18n>Search</button>
   </form>
+  <div class="row mi-tabs">
+    <button class="small ghost" type="button" id="miTrending" data-i18n>Trending</button>
+    <button class="small ghost" type="button" id="miFavs" data-i18n>Favorites</button>
+  </div>
   <ul class="mi-results" id="miResults"></ul>
-  <button class="ghost small" type="button" id="miClose">Close</button>
+  <button class="ghost small" type="button" id="miClose" data-i18n>Close</button>
 </dialog>
 
 <script>
@@ -256,13 +302,185 @@
   let draggingVolume = false;
   let previewAudio = null;
 
+  // UI text is written in English; TR maps each English string (and server message) to Turkish.
+  const TR = {
+    'Let your viewers play sounds<br>on stream with channel points': 'İzleyicilerin kanal puanlarıyla<br>yayında ses çalsın',
+    'Create a reward, upload a sound, paste the link into OBS. Nothing to download, nothing to configure.': 'Bir ödül oluştur, ses ekle, bağlantıyı OBS\'e yapıştır. İndirilecek ya da ayarlanacak bir şey yok.',
+    'Log in with Kick': 'Kick ile giriş yap',
+    'Log in': 'Giriş yap',
+    'Connect your Kick account. Your password never reaches us.': 'Kick hesabını bağla. Şifren bize hiç ulaşmaz.',
+    'Add a sound': 'Ses ekle',
+    'Pick a reward name, cost and sound. The reward is created on Kick automatically.': 'Ödül adı, bedel ve ses seç. Ödül Kick\'te otomatik oluşturulur.',
+    'Add to OBS': 'OBS\'e ekle',
+    'Add your personal link to OBS as a browser source. Done.': 'Kişisel bağlantını OBS\'e tarayıcı kaynağı olarak ekle. Bu kadar.',
+    'Log out': 'Çıkış yap',
+    'Your Kick connection has expired. Log in again to keep your sounds working.': 'Kick bağlantının süresi doldu. Seslerin çalışmaya devam etsin diye tekrar giriş yap.',
+    'Log in again': 'Tekrar giriş yap',
+    "We're not receiving reward notifications from Kick. Sounds won't play when rewards are redeemed.": 'Kick\'ten ödül bildirimleri gelmiyor. Ödül kullanıldığında ses çalmayacak.',
+    'Repair': 'Onar',
+    'All sounds are muted. Redemptions are logged but nothing plays in OBS.': 'Tüm sesler kapalı. Kullanımlar kaydediliyor ama OBS\'te hiçbir şey çalmıyor.',
+    'Your OBS link': 'OBS bağlantın',
+    'OBS connected': 'OBS bağlı',
+    'OBS not connected': 'OBS bağlı değil',
+    "This link is personal. Don't share it with anyone.": 'Bu bağlantı sana özel. Kimseyle paylaşma.',
+    'Copy': 'Kopyala',
+    'In OBS, click <b>+</b> under <b>Sources</b> and choose <b>Browser</b>.': 'OBS\'te <b>Kaynaklar</b> altındaki <b>+</b> düğmesine bas ve <b>Tarayıcı</b>yı seç.',
+    'Paste the link into the <b>URL</b> field and click <b>OK</b>.': 'Bağlantıyı <b>URL</b> alanına yapıştır ve <b>Tamam</b>a bas.',
+    'Tick <b>Control audio via OBS</b> to see the sound in the OBS mixer.': 'Sesi OBS mikserinde görmek için <b>Sesi OBS ile kontrol et</b> kutusunu işaretle.',
+    'Live controls': 'Canlı kontroller',
+    'Use these during the stream.': 'Yayın sırasında bunları kullan.',
+    'Mute all sounds': 'Tüm sesleri kapat',
+    'Sounds are muted – unmute': 'Sesler kapalı – aç',
+    'Skip current sound': 'Çalan sesi geç',
+    'Clear queue': 'Kuyruğu temizle',
+    'Skipped': 'Geçildi',
+    'Queue cleared': 'Kuyruk temizlendi',
+    'All sounds muted': 'Tüm sesler kapatıldı',
+    'Sounds unmuted': 'Sesler açıldı',
+    'Sound rewards': 'Sesli ödüller',
+    'Rewards you add here are created on your Kick channel automatically. When a viewer redeems one, its sound plays in OBS.': 'Buraya eklediğin ödüller Kick kanalında otomatik oluşturulur. Bir izleyici kullandığında sesi OBS\'te çalar.',
+    'Reward name': 'Ödül adı',
+    'e.g. sound1': 'örn. ses1',
+    'Cost': 'Bedel',
+    'Sound file': 'Ses dosyası',
+    'Choose file…': 'Dosya seç…',
+    'Pick a sound from myinstants.com': 'myinstants.com\'dan ses seç',
+    'Add': 'Ekle',
+    "Read the viewer's message aloud (text-to-speech). The sound becomes optional.": 'İzleyicinin mesajını sesli oku (metin okuma). Ses dosyası isteğe bağlı olur.',
+    "Read the viewer's message aloud (the reward must ask viewers for text on Kick)": 'İzleyicinin mesajını sesli oku (ödül Kick\'te izleyiciden metin istemeli)',
+    'Add a sound to a reward that already exists on Kick': 'Kick\'te zaten olan bir ödüle ses ekle',
+    'Kick reward': 'Kick ödülü',
+    'Loading…': 'Yükleniyor…',
+    'Choose…': 'Seç…',
+    'Every reward already has a sound': 'Tüm ödüllerin zaten sesi var',
+    'Attach': 'Bağla',
+    'Recent activity': 'Son etkinlik',
+    'Redemptions will show up here.': 'Kullanımlar burada görünecek.',
+    'Settings': 'Ayarlar',
+    'Master volume': 'Ana ses',
+    'Max sound length (seconds, 0 = no limit)': 'En uzun ses süresi (saniye, 0 = sınırsız)',
+    'Even out loudness (turns down sounds that are much louder than the rest)': 'Ses seviyesini eşitle (diğerlerinden çok yüksek sesleri kısar)',
+    'Show who redeemed it on stream': 'Kimin kullandığını yayında göster',
+    'Text-to-speech voice': 'Metin okuma dili',
+    'Banned words for text-to-speech (comma or line separated). Messages with these words are not read.': 'Metin okuma için yasaklı kelimeler (virgül ya da satırla ayır). Bunları içeren mesajlar okunmaz.',
+    'Regenerate OBS link': 'OBS bağlantısını yenile',
+    'Delete account': 'Hesabı sil',
+    'Designed and built by Emre Sarıkaya.': 'Emre Sarıkaya tarafından tasarlandı ve geliştirildi.',
+    'Search, e.g. bruh': 'Ara, örn. bruh',
+    'Search': 'Ara',
+    'Trending': 'Trend',
+    'Favorites': 'Favoriler',
+    'Close': 'Kapat',
+    'Use': 'Kullan',
+    'No sounds found.': 'Ses bulunamadı.',
+    'No favorites yet. Tap ☆ on a sound to save it.': 'Henüz favori yok. Kaydetmek için bir sesin ☆ simgesine dokun.',
+    'Could not play this sound': 'Bu ses çalınamadı',
+    'Test': 'Test',
+    'Play in OBS': 'OBS\'te çal',
+    'Listen here': 'Burada dinle',
+    'Change sound': 'Sesi değiştir',
+    'Change sound from myinstants.com': 'Sesi myinstants.com\'dan değiştir',
+    'Edit': 'Düzenle',
+    'Pause': 'Durdur',
+    'Resume': 'Devam ettir',
+    'Delete': 'Sil',
+    'Save': 'Kaydet',
+    'Cancel': 'Vazgeç',
+    'Volume': 'Ses',
+    'points': 'puan',
+    'paused': 'durduruldu',
+    'created in the Kick dashboard': 'Kick panelinde oluşturuldu',
+    'text-to-speech': 'metin okuma',
+    'Text-to-speech on': 'Metin okuma açık',
+    'Text-to-speech off': 'Metin okuma kapalı',
+    'No sound rewards yet. Add your first one below.': 'Henüz sesli ödül yok. İlkini aşağıdan ekle.',
+    'Saved': 'Kaydedildi',
+    'Deleted': 'Silindi',
+    'Sound changed': 'Ses değiştirildi',
+    'Sound attached': 'Ses bağlandı',
+    'Choose a reward': 'Bir ödül seç',
+    'Choose a sound file': 'Bir ses dosyası seç',
+    'Could not read the file': 'Dosya okunamadı',
+    'Link copied. Now paste it into OBS.': 'Bağlantı kopyalandı. Şimdi OBS\'e yapıştır.',
+    'Copy the link:': 'Bağlantıyı kopyala:',
+    'Connection repaired': 'Bağlantı onarıldı',
+    'Create a new OBS link? The old link will stop working and you will need to replace it in OBS.': 'Yeni bir OBS bağlantısı oluşturulsun mu? Eski bağlantı çalışmayı bırakır, OBS\'te değiştirmen gerekir.',
+    'New link ready. Copy it and replace the old link in OBS.': 'Yeni bağlantı hazır. Kopyala ve OBS\'teki eski bağlantıyla değiştir.',
+    'Delete your account? Your sounds, settings and the Kick rewards created here will be removed. This cannot be undone.': 'Hesabın silinsin mi? Seslerin, ayarların ve burada oluşturulan Kick ödülleri kaldırılacak. Bu geri alınamaz.',
+    'OBS is not connected. Add the link to OBS as a browser source.': 'OBS bağlı değil. Bağlantıyı OBS\'e tarayıcı kaynağı olarak ekle.',
+    'Something went wrong': 'Bir şeyler ters gitti',
+    'Login required': 'Giriş gerekli',
+    'You need to log in': 'Giriş yapman gerekiyor',
+    'Invalid request': 'Geçersiz istek',
+    'Sound must be mp3, wav, ogg, m4a, aac or webm': 'Ses mp3, wav, ogg, m4a, aac ya da webm olmalı',
+    'Sound file is empty': 'Ses dosyası boş',
+    'myinstants.com is not responding, try again': 'myinstants.com yanıt vermiyor, tekrar dene',
+    'Invalid sound link': 'Geçersiz ses bağlantısı',
+    'Only myinstants.com sounds can be used': 'Sadece myinstants.com sesleri kullanılabilir',
+    'Could not get the sound from myinstants.com': 'Ses myinstants.com\'dan alınamadı',
+    'You can save at most 50 favorites': 'En fazla 50 favori kaydedebilirsin',
+    'Reward name cannot be empty': 'Ödül adı boş olamaz',
+    'Reward name can be at most 50 characters': 'Ödül adı en fazla 50 karakter olabilir',
+    'Cost must be a whole number of 1 or more': 'Bedel 1 veya daha büyük bir tam sayı olmalı',
+    'This reward was not found on your Kick channel': 'Bu ödül Kick kanalında bulunamadı',
+    'This reward already has a sound': 'Bu ödülün zaten sesi var',
+    'A reward with this name already exists': 'Bu adda bir ödül zaten var',
+    'Reward not found': 'Ödül bulunamadı',
+    'This reward was created in the Kick dashboard; change its name, cost and status on Kick': 'Bu ödül Kick panelinde oluşturuldu; adını, bedelini ve durumunu Kick\'te değiştir',
+    'Add a sound before turning off text-to-speech': 'Metin okumayı kapatmadan önce bir ses ekle',
+    'Text-to-speech is not available right now': 'Metin okuma şu an kullanılamıyor',
+    'Forbidden': 'Yasak',
+    'Not found': 'Bulunamadı',
+    'OBS link regenerated; the old link no longer works': 'OBS bağlantısı yenilendi; eski bağlantı artık çalışmıyor',
+    'Kick connection repaired': 'Kick bağlantısı onarıldı',
+  };
+  // Server log lines and messages built from templates.
+  const TR_PATTERNS = [
+    [/^(.+) redeemed "(.+)"( \(OBS was not connected!\))?( \(muted\))?$/, (m) => `${m[1] === 'Someone' ? 'Birisi' : m[1]} "${m[2]}" ödülünü kullandı${m[3] ? ' (OBS bağlı değildi!)' : ''}${m[4] ? ' (sessiz)' : ''}`],
+    [/^Added "(.+)"$/, (m) => `"${m[1]}" eklendi`],
+    [/^Deleted "(.+)"$/, (m) => `"${m[1]}" silindi`],
+    [/^Message from (.+) was not read: it has a banned word$/, (m) => `${m[1] === 'someone' ? 'Birinin' : m[1] + ' adlı izleyicinin'} mesajı okunmadı: yasaklı kelime içeriyor`],
+    [/^Could not subscribe to Kick events: (.+)$/, (m) => `Kick etkinliklerine abone olunamadı: ${m[1]}`],
+    [/^Sound file can be at most (\d+) MB$/, (m) => `Ses dosyası en fazla ${m[1]} MB olabilir`],
+    [/^You can add at most (\d+) sound rewards$/, (m) => `En fazla ${m[1]} sesli ödül ekleyebilirsin`],
+    [/^"(.+)" added and created on Kick$/, (m) => `"${m[1]}" eklendi ve Kick'te oluşturuldu`],
+    [/^Playing "(.+)" in OBS$/, (m) => `"${m[1]}" OBS'te çalınıyor`],
+    [/^Sound changed to "(.+)"$/, (m) => `Ses "${m[1]}" olarak değiştirildi`],
+    [/^Delete "(.+)"\? The reward will also be removed from your Kick channel\.$/, (m) => `"${m[1]}" silinsin mi? Ödül Kick kanalından da kaldırılacak.`],
+    [/^Remove the sound from "(.+)"\? The reward stays on Kick\.$/, (m) => `"${m[1]}" ödülünün sesi kaldırılsın mı? Ödül Kick'te kalır.`],
+  ];
+  let lang = 'en';
+  try { lang = localStorage.getItem('lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en'); } catch {}
+
+  function t(text) {
+    if (lang !== 'tr') return text;
+    if (TR[text]) return TR[text];
+    for (const [re, fn] of TR_PATTERNS) { const m = String(text).match(re); if (m) return fn(m); }
+    return text;
+  }
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-i18n]').forEach((el) => { el.dataset.en ??= el.innerHTML.trim(); el.innerHTML = t(el.dataset.en); });
+    document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+    document.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
+    document.querySelectorAll('.file-pick:not(.has) .btn').forEach((el) => { el.textContent = t('Choose file…'); });
+    document.querySelectorAll('.lang-btn').forEach((el) => { el.textContent = lang === 'tr' ? 'English' : 'Türkçe'; });
+    if (me) render(me, true);
+  }
+  document.querySelectorAll('.lang-btn').forEach((el) => el.addEventListener('click', () => {
+    lang = lang === 'tr' ? 'en' : 'tr';
+    try { localStorage.setItem('lang', lang); } catch {}
+    applyLang();
+  }));
+
   function toast(msg, err) {
-    const t = $('toast');
-    t.textContent = msg;
-    t.className = err ? 'err' : '';
-    t.hidden = false;
+    const el = $('toast');
+    el.textContent = t(msg);
+    el.className = err ? 'err' : '';
+    el.hidden = false;
     clearTimeout(toast.t);
-    toast.t = setTimeout(() => (t.hidden = true), err ? 6000 : 3000);
+    toast.t = setTimeout(() => (el.hidden = true), err ? 6000 : 3000);
   }
 
   async function api(path, method = 'GET', body) {
@@ -296,14 +514,15 @@
     try { await fn(); } catch (e) { toast(e.message, true); } finally { btn.disabled = false; btn.textContent = label; }
   }
 
-  // A sound comes from a local file or a myinstants pick; sound() returns what /api/alerts expects.
+  // A sound comes from a local file or a myinstants pick; sound() returns what /api/alerts expects
+  // (null when the sound is optional, i.e. a text-to-speech reward, and nothing was picked).
   function bindFilePick(pickId) {
     const wrap = $(pickId), input = wrap.querySelector('input'), label = wrap.querySelector('.btn');
-    let remote = null;
+    let remote = null, optional = false;
     const show = (name) => {
       wrap.classList.toggle('has', Boolean(name));
-      label.textContent = name || 'Choose file…';
-      input.required = !remote;
+      label.textContent = name || t('Choose file…');
+      input.required = !remote && !optional;
     };
     input.addEventListener('change', () => { remote = null; show(input.files[0]?.name); });
     wrap.nextElementSibling.addEventListener('click', async () => {
@@ -315,21 +534,49 @@
     });
     return {
       reset() { remote = null; input.value = ''; show(''); },
+      setOptional(v) { optional = v; input.required = !remote && !optional; },
       sound(maxMb) {
         if (remote) return { url: remote.url };
         const f = input.files[0];
-        if (!f) throw new Error('Choose a sound file');
+        if (!f) { if (optional) return null; throw new Error('Choose a sound file'); }
         return readFile(f, maxMb);
       },
     };
   }
 
   let miResolve = null, miList = [];
+  const isFav = (url) => me?.favorites.some((f) => f.url === url);
+
+  function showMi(list, emptyMsg) {
+    miList = list;
+    $('miResults').innerHTML = list.length
+      ? list.map((r, i) => `<li><button class="small ghost" type="button" data-mi="play" data-i="${i}" aria-label="${esc(t('Listen here'))}: ${esc(r.title)}">▶</button>
+          <span title="${esc(r.title)}">${esc(r.title)}</span>
+          <button class="small ghost ${isFav(r.url) ? 'fav' : ''}" type="button" data-mi="fav" data-i="${i}" aria-pressed="${isFav(r.url)}" aria-label="${esc(t('Favorites'))}">${isFav(r.url) ? '★' : '☆'}</button>
+          <button class="small primary" type="button" data-mi="use" data-i="${i}">${esc(t('Use'))}</button></li>`).join('')
+      : `<li class="muted">${esc(t(emptyMsg))}</li>`;
+  }
+
+  function miTab(tab) {
+    $('miTrending').classList.toggle('on', tab === 'trending');
+    $('miFavs').classList.toggle('on', tab === 'favs');
+    if (tab === 'favs') return showMi(me.favorites, 'No favorites yet. Tap ☆ on a sound to save it.');
+    return miLoad('');
+  }
+
+  function miLoad(q) {
+    return busy(q ? $('miSearchBtn') : $('miTrending'), async () => {
+      $('miResults').innerHTML = '';
+      showMi((await api('/api/myinstants?q=' + encodeURIComponent(q))).results, 'No sounds found.');
+    });
+  }
+
   function pickMyInstants() {
     return new Promise((resolve) => {
       miResolve = resolve;
       $('miDialog').showModal();
       $('miQuery').focus();
+      miTab(me.favorites.length ? 'favs' : 'trending');
     });
   }
   $('miDialog').addEventListener('close', () => {
@@ -338,19 +585,16 @@
     miResolve = null;
   });
   $('miClose').addEventListener('click', () => $('miDialog').close());
+  $('miTrending').addEventListener('click', () => miTab('trending'));
+  $('miFavs').addEventListener('click', () => miTab('favs'));
   $('miSearch').addEventListener('submit', (e) => {
     e.preventDefault();
-    busy($('miSearchBtn'), async () => {
-      $('miResults').innerHTML = '';
-      miList = (await api('/api/myinstants?q=' + encodeURIComponent($('miQuery').value.trim()))).results;
-      $('miResults').innerHTML = miList.length
-        ? miList.map((r, i) => `<li><button class="small ghost" type="button" data-mi="play" data-i="${i}" aria-label="Listen to ${esc(r.title)}">▶</button>
-            <span title="${esc(r.title)}">${esc(r.title)}</span>
-            <button class="small primary" type="button" data-mi="use" data-i="${i}">Use</button></li>`).join('')
-        : '<li class="muted">No sounds found.</li>';
-    });
+    const q = $('miQuery').value.trim();
+    $('miTrending').classList.remove('on');
+    $('miFavs').classList.remove('on');
+    if (q) miLoad(q); else miTab('trending');
   });
-  $('miResults').addEventListener('click', (e) => {
+  $('miResults').addEventListener('click', async (e) => {
     const b = e.target.closest('button[data-mi]');
     if (!b) return;
     const r = miList[b.dataset.i];
@@ -358,6 +602,15 @@
       previewAudio?.pause();
       previewAudio = new Audio(r.url);
       previewAudio.play().catch(() => toast('Could not play this sound', true));
+      return;
+    }
+    if (b.dataset.mi === 'fav') {
+      try {
+        me = await api('/api/myinstants/favorites', 'POST', { url: r.url, title: r.title, on: !isFav(r.url) });
+        b.textContent = isFav(r.url) ? '★' : '☆';
+        b.classList.toggle('fav', isFav(r.url));
+        b.setAttribute('aria-pressed', isFav(r.url));
+      } catch (err) { toast(err.message, true); }
       return;
     }
     const resolve = miResolve;
@@ -390,20 +643,32 @@
     if (state.user.avatar) $('avatar').src = state.user.avatar; else $('avatar').removeAttribute('src');
     $('bannerRelogin').hidden = !state.needsRelogin;
     $('bannerRepair').hidden = state.needsRelogin || state.subscribed;
+    $('bannerMuted').hidden = !state.muted;
 
     const on = state.overlays > 0;
     $('obsStatus').className = 'status ' + (on ? 'on' : 'off');
-    $('obsStatus').textContent = on ? 'OBS connected' : 'OBS not connected';
+    $('obsStatus').textContent = t(on ? 'OBS connected' : 'OBS not connected');
     $('overlayUrl').textContent = state.overlayUrl.replace(state.overlayKey, '•'.repeat(12));
+
+    $('muteBtn').textContent = t(state.muted ? 'Sounds are muted – unmute' : 'Mute all sounds');
+    $('muteBtn').classList.toggle('muted', state.muted);
+    $('muteBtn').setAttribute('aria-pressed', state.muted);
 
     if (!draggingVolume) {
       $('masterVolume').value = state.masterVolume;
       $('masterVal').textContent = Math.round(state.masterVolume * 100) + '%';
     }
+    // Don't overwrite a settings field while the streamer is typing in it.
+    for (const el of document.querySelectorAll('[data-setting]')) {
+      if (el === document.activeElement) continue;
+      const v = state[el.dataset.setting];
+      if (el.type === 'checkbox') el.checked = v;
+      else el.value = Array.isArray(v) ? v.join(', ') : v;
+    }
 
     $('log').innerHTML = state.logs.length
-      ? state.logs.slice().reverse().map((l) => `<li><time>${new Date(l.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><span>${esc(l.msg)}</span></li>`).join('')
-      : '<li class="muted">Redemptions will show up here.</li>';
+      ? state.logs.slice().reverse().map((l) => `<li><time>${new Date(l.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><span>${esc(t(l.msg))}</span></li>`).join('')
+      : `<li class="muted">${esc(t('Redemptions will show up here.'))}</li>`;
 
     const key = JSON.stringify(state.alerts);
     if (force || (key !== alertsKey && !editingId && !draggingVolume)) {
@@ -416,35 +681,36 @@
   function renderAlerts() {
     const list = me.alerts;
     if (!list.length) {
-      $('alerts').innerHTML = '<div class="empty">No sound rewards yet. Add your first one below.</div>';
+      $('alerts').innerHTML = `<div class="empty">${esc(t('No sound rewards yet. Add your first one below.'))}</div>`;
       return;
     }
     $('alerts').innerHTML = list.map((a) => {
       if (a.id === editingId) {
         return `<div class="alert" data-id="${a.id}">
           <div class="edit">
-            <div><label for="et-${a.id}">Reward name</label><input id="et-${a.id}" type="text" maxlength="50" value="${esc(a.title)}"></div>
-            <div><label for="ec-${a.id}">Cost</label><input id="ec-${a.id}" type="number" min="1" step="1" value="${a.cost}"></div>
-            <button class="primary" data-act="save">Save</button>
-            <button class="ghost" data-act="cancel">Cancel</button>
+            <div><label for="et-${a.id}">${t('Reward name')}</label><input id="et-${a.id}" type="text" maxlength="50" value="${esc(a.title)}"></div>
+            <div><label for="ec-${a.id}">${t('Cost')}</label><input id="ec-${a.id}" type="number" min="1" step="1" value="${a.cost}"></div>
+            <button class="primary" data-act="save">${t('Save')}</button>
+            <button class="ghost" data-act="cancel">${t('Cancel')}</button>
           </div></div>`;
       }
       const vol = Math.round((a.volume ?? 1) * 100);
       return `<div class="alert ${a.enabled === false ? 'off' : ''}" data-id="${a.id}">
         <div>
           <div class="title">${esc(a.title)}</div>
-          <div class="meta">${a.cost} points${a.enabled === false ? ' · paused' : ''}${a.managed ? '' : ' · created in the Kick dashboard'}</div>
+          <div class="meta">${a.cost} ${t('points')}${a.tts ? ' · 🗣️ ' + t('text-to-speech') : ''}${a.enabled === false ? ' · ' + t('paused') : ''}${a.managed ? '' : ' · ' + t('created in the Kick dashboard')}</div>
         </div>
         <div class="row">
-          <button class="small" data-act="test" title="Play in OBS">Test</button>
-          <button class="small ghost" data-act="preview" title="Listen here" aria-label="Listen here">▶</button>
-          <button class="small ghost" data-act="sound">Change sound</button>
-          <button class="small ghost" data-act="mi" title="Change sound from myinstants.com">myinstants</button>
-          ${a.managed ? `<button class="small ghost" data-act="edit">Edit</button>
-          <button class="small ghost" data-act="toggle">${a.enabled === false ? 'Resume' : 'Pause'}</button>` : ''}
-          <button class="small ghost danger" data-act="delete">Delete</button>
+          <button class="small" data-act="test" title="${t('Play in OBS')}">${t('Test')}</button>
+          ${a.file ? `<button class="small ghost" data-act="preview" title="${t('Listen here')}" aria-label="${t('Listen here')}">▶</button>` : ''}
+          <button class="small ghost" data-act="sound">${t('Change sound')}</button>
+          <button class="small ghost" data-act="mi" title="${t('Change sound from myinstants.com')}">myinstants</button>
+          <button class="small ghost" data-act="tts" aria-pressed="${Boolean(a.tts)}">🗣️ ${t(a.tts ? 'Text-to-speech on' : 'Text-to-speech off')}</button>
+          ${a.managed ? `<button class="small ghost" data-act="edit">${t('Edit')}</button>
+          <button class="small ghost" data-act="toggle">${t(a.enabled === false ? 'Resume' : 'Pause')}</button>` : ''}
+          <button class="small ghost danger" data-act="delete">${t('Delete')}</button>
         </div>
-        <div class="vol"><label for="v-${a.id}" style="margin:0">Volume</label>
+        <div class="vol"><label for="v-${a.id}" style="margin:0">${t('Volume')}</label>
           <input id="v-${a.id}" type="range" min="0" max="1" step="0.05" value="${a.volume ?? 1}" data-act="volume">
           <span data-volval>${vol}%</span></div>
       </div>`;
@@ -459,28 +725,33 @@
 
   async function loadKickRewards() {
     const sel = $('linkReward');
+    sel.innerHTML = `<option value="">${esc(t('Loading…'))}</option>`;
     try {
       const { rewards } = await api('/api/rewards');
       const linked = new Set(me.alerts.map((a) => a.rewardId));
       const free = rewards.filter((r) => !linked.has(r.id));
       sel.innerHTML = free.length
-        ? '<option value="">Choose…</option>' + free.map((r) => `<option value="${esc(r.id)}">${esc(r.title)} (${r.cost} points)</option>`).join('')
-        : '<option value="">Every reward already has a sound</option>';
+        ? `<option value="">${esc(t('Choose…'))}</option>` + free.map((r) => `<option value="${esc(r.id)}">${esc(r.title)} (${r.cost} ${esc(t('points'))})</option>`).join('')
+        : `<option value="">${esc(t('Every reward already has a sound'))}</option>`;
     } catch (e) {
-      sel.innerHTML = `<option value="">${esc(e.message)}</option>`;
+      sel.innerHTML = `<option value="">${esc(t(e.message))}</option>`;
     }
   }
 
   const newPick = bindFilePick('newSoundPick');
   const linkPick = bindFilePick('linkSoundPick');
+  $('newTts').addEventListener('change', (e) => newPick.setOptional(e.target.checked));
+  $('linkTts').addEventListener('change', (e) => linkPick.setOptional(e.target.checked));
 
   $('addForm').addEventListener('submit', (e) => {
     e.preventDefault();
     busy($('addBtn'), async () => {
       const sound = await newPick.sound(me.limits.maxSoundMb);
       const title = $('newTitle').value.trim();
-      render(await api('/api/alerts', 'POST', { title, cost: Number($('newCost').value), sound }), true);
+      render(await api('/api/alerts', 'POST', { title, cost: Number($('newCost').value), sound, tts: $('newTts').checked }), true);
       $('newTitle').value = '';
+      $('newTts').checked = false;
+      newPick.setOptional(false);
       newPick.reset();
       toast(`"${title}" added and created on Kick`);
     });
@@ -493,7 +764,9 @@
     busy($('linkBtn'), async () => {
       if (!$('linkReward').value) throw new Error('Choose a reward');
       const sound = await linkPick.sound(me.limits.maxSoundMb);
-      render(await api('/api/alerts', 'POST', { rewardId: $('linkReward').value, sound }), true);
+      render(await api('/api/alerts', 'POST', { rewardId: $('linkReward').value, sound, tts: $('linkTts').checked }), true);
+      $('linkTts').checked = false;
+      linkPick.setOptional(false);
       linkPick.reset();
       loadKickRewards();
       toast('Sound attached');
@@ -529,6 +802,8 @@
         toast('Saved');
       } else if (act === 'toggle') {
         render(await api(`/api/alerts/${id}`, 'PATCH', { enabled: a.enabled === false }), true);
+      } else if (act === 'tts') {
+        render(await api(`/api/alerts/${id}`, 'PATCH', { tts: !a.tts }), true);
       } else if (act === 'sound') {
         const file = await pickFile();
         if (!file) return;
@@ -542,7 +817,7 @@
         toast(`Sound changed to "${r.title}"`);
       } else if (act === 'delete') {
         const msg = a.managed ? `Delete "${a.title}"? The reward will also be removed from your Kick channel.` : `Remove the sound from "${a.title}"? The reward stays on Kick.`;
-        if (!confirm(msg)) return;
+        if (!confirm(t(msg))) return;
         render(await api(`/api/alerts/${id}`, 'DELETE'), true);
         toast('Deleted');
       }
@@ -577,12 +852,32 @@
     finally { draggingVolume = false; }
   });
 
+  document.querySelectorAll('[data-setting]').forEach((el) => el.addEventListener('change', async () => {
+    const v = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value;
+    try {
+      render(await api('/api/settings', 'POST', { [el.dataset.setting]: v }), false);
+      toast('Saved');
+    } catch (err) { toast(err.message, true); }
+  }));
+
+  $('muteBtn').addEventListener('click', (e) => busy(e.currentTarget, async () => {
+    const state = await api('/api/settings', 'POST', { muted: !me.muted });
+    toast(state.muted ? 'All sounds muted' : 'Sounds unmuted');
+    render(state, false);
+  }));
+  for (const [btnId, path, msg] of [['skipBtn', '/api/overlay/skip', 'Skipped'], ['clearBtn', '/api/overlay/clear', 'Queue cleared']]) {
+    $(btnId).addEventListener('click', (e) => busy(e.currentTarget, async () => {
+      const r = await api(path, 'POST');
+      toast(r.overlays ? msg : 'OBS is not connected. Add the link to OBS as a browser source.', !r.overlays);
+    }));
+  }
+
   $('copyOverlay').addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(me.overlayUrl);
       toast('Link copied. Now paste it into OBS.');
     } catch {
-      prompt('Copy the link:', me.overlayUrl);
+      prompt(t('Copy the link:'), me.overlayUrl);
     }
   });
 
@@ -592,7 +887,7 @@
   }));
 
   $('regenBtn').addEventListener('click', (e) => {
-    if (!confirm('Create a new OBS link? The old link will stop working and you will need to replace it in OBS.')) return;
+    if (!confirm(t('Create a new OBS link? The old link will stop working and you will need to replace it in OBS.'))) return;
     busy(e.currentTarget, async () => {
       render(await api('/api/overlay/regenerate', 'POST'), false);
       toast('New link ready. Copy it and replace the old link in OBS.');
@@ -600,7 +895,7 @@
   });
 
   $('deleteAccountBtn').addEventListener('click', (e) => {
-    if (!confirm('Delete your account? Your sounds, settings and the Kick rewards created here will be removed. This cannot be undone.')) return;
+    if (!confirm(t('Delete your account? Your sounds, settings and the Kick rewards created here will be removed. This cannot be undone.'))) return;
     busy(e.currentTarget, async () => {
       await api('/api/account', 'DELETE');
       location.href = '/';
@@ -612,6 +907,7 @@
     location.href = '/';
   });
 
+  applyLang();
   const q = new URLSearchParams(location.search);
   if (q.get('err')) toast(q.get('err'), true);
   if (q.size) history.replaceState(null, '', '/');
