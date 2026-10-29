@@ -100,6 +100,16 @@ function hasBannedWord(user, text) {
   return (user.bannedWords || []).some((w) => padded.includes(` ${words(w).join(' ')} `));
 }
 
+// Spam for TTS: one character 5+ times in a row ignoring spaces ("ğğğğğ", "- - - - -"), no letters or digits
+// at all, or a single character making up most of a longer message ("ğğ ğğ ağğ").
+function isSpam(text) {
+  const chars = [...text.replace(/\s/g, '').toLocaleLowerCase('tr')];
+  if (!/[\p{L}\p{N}]/u.test(text) || /(.)\1{4,}/su.test(chars.join(''))) return true;
+  const counts = new Map();
+  for (const c of chars) counts.set(c, (counts.get(c) || 0) + 1);
+  return chars.length >= 6 && Math.max(...counts.values()) / chars.length > 0.5;
+}
+
 function playAlert(user, alert, who, text = '') {
   if (!alert.file && !text) return false;
   const volume = Math.max(0, Math.min(1, (alert.volume ?? 1) * (user.masterVolume ?? 1)));
@@ -145,6 +155,9 @@ function handleRedemption(evt) {
     text = String(evt.user_input || '').replace(/https?:\/\/\S+/g, '').trim().slice(0, TTS_MAX);
     if (text && hasBannedWord(user, text)) {
       ulog(user, `Message from ${who || 'someone'} was not read: it has a banned word`);
+      text = '';
+    } else if (text && isSpam(text)) {
+      ulog(user, `Message from ${who || 'someone'} was not read: it looks like spam`);
       text = '';
     }
   }
@@ -331,6 +344,9 @@ function validCost(c) {
   return n;
 }
 
+// Kick wants a #rrggbb hex; anything else falls back to Kick's default color.
+const validColor = (c) => (/^#[0-9a-f]{6}$/i.test(String(c)) ? String(c).toLowerCase() : null);
+
 function validVolume(v) {
   const n = Number(v);
   return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 1;
@@ -405,14 +421,16 @@ async function handleApi(req, res, user, p) {
       const title = validTitle(b.title);
       const cost = validCost(b.cost);
       if (user.alerts.some((a) => norm(a.title) === norm(title))) throw new HttpError(400, 'A reward with this name already exists');
+      const color = validColor(b.color);
       const reward = await kick.createReward(user, {
         title,
         cost,
         description: tts ? '🗣️ Your message is read aloud on stream' : '🔊 Plays a sound on stream',
         is_user_input_required: tts,
         should_redemptions_skip_request_queue: true,
+        ...(color && { background_color: color }),
       });
-      alert = { id, rewardId: reward?.id, title, cost, managed: true, tts };
+      alert = { id, rewardId: reward?.id, title, cost, managed: true, tts, color: validColor(reward?.background_color) || color };
     }
     try {
       alert.file = b.sound ? saveSound(user, id, await resolveSound(b.sound)) : null;

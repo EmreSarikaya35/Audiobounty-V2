@@ -205,6 +205,19 @@
 
   form.add { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); display: grid; grid-template-columns: 2fr 1fr 2fr auto; gap: .6rem; align-items: end; }
   form.add label.check { grid-column: 1 / -1; font-size: .875rem; }
+  .color-field { grid-column: 1 / -1; }
+  .swatches { display: flex; flex-wrap: wrap; gap: .55rem; }
+  .swatch {
+    position: relative; width: 1.875rem; height: 1.875rem; margin: 0; border-radius: 50%; background: var(--c); cursor: pointer;
+    transition: transform 160ms cubic-bezier(.2,.9,.3,1), box-shadow 200ms;
+  }
+  .swatch:active { transform: scale(.88); }
+  .swatch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  /* Selected: a ring in the swatch's own color, separated by a gap */
+  .swatch:has(input:checked), .swatch.on { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--c); transform: scale(1.08); }
+  .swatch:has(input:focus-visible) { outline: 2px solid var(--accent-text); outline-offset: 5px; }
+  .swatch.custom:not(.on) { background: conic-gradient(#f5222d, #fadb14, #00e701, #13c2c2, #2f80ed, #9b51e0, #eb2f96, #f5222d); }
+  .alert .dot { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; background: var(--c); margin-right: .45rem; vertical-align: .08em; }
   .sound-pick { display: flex; gap: .4rem; }
   .sound-pick .file-pick { flex: 1; min-width: 0; }
   .file-pick { position: relative; }
@@ -405,6 +418,20 @@
           </div>
         </div>
         <button class="primary" type="submit" id="addBtn" data-i18n>Add</button>
+        <div class="color-field">
+          <span class="field-label" id="colorLabel" data-i18n>Color on Kick</span>
+          <div class="swatches" role="radiogroup" aria-labelledby="colorLabel">
+            <label class="swatch" style="--c:#00e701"><input type="radio" name="newColor" value="#00e701" checked data-i18n-label="Green"></label>
+            <label class="swatch" style="--c:#2f80ed"><input type="radio" name="newColor" value="#2f80ed" data-i18n-label="Blue"></label>
+            <label class="swatch" style="--c:#9b51e0"><input type="radio" name="newColor" value="#9b51e0" data-i18n-label="Purple"></label>
+            <label class="swatch" style="--c:#eb2f96"><input type="radio" name="newColor" value="#eb2f96" data-i18n-label="Pink"></label>
+            <label class="swatch" style="--c:#f5222d"><input type="radio" name="newColor" value="#f5222d" data-i18n-label="Red"></label>
+            <label class="swatch" style="--c:#fa8c16"><input type="radio" name="newColor" value="#fa8c16" data-i18n-label="Orange"></label>
+            <label class="swatch" style="--c:#fadb14"><input type="radio" name="newColor" value="#fadb14" data-i18n-label="Yellow"></label>
+            <label class="swatch" style="--c:#13c2c2"><input type="radio" name="newColor" value="#13c2c2" data-i18n-label="Cyan"></label>
+            <label class="swatch custom" id="customSwatch"><input type="color" id="newColorCustom" value="#00e701" data-i18n-label="Custom color"></label>
+          </div>
+        </div>
         <label class="check"><input type="checkbox" class="switch" role="switch" id="newTts"> <span data-i18n>Read the viewer's message aloud (text-to-speech). The sound becomes optional.</span></label>
       </form>
       <details class="link-existing" id="linkDetails">
@@ -563,6 +590,9 @@
     'Close': 'Kapat',
     'More': 'Diğer',
     'Theme': 'Tema',
+    'Color on Kick': 'Kick\'teki rengi',
+    'Custom color': 'Özel renk',
+    'Green': 'Yeşil', 'Blue': 'Mavi', 'Purple': 'Mor', 'Pink': 'Pembe', 'Red': 'Kırmızı', 'Orange': 'Turuncu', 'Yellow': 'Sarı', 'Cyan': 'Turkuaz',
     'Show less': 'Daha az göster',
     'Automatic': 'Otomatik',
     'Light': 'Açık',
@@ -639,6 +669,7 @@
     [/^Added "(.+)"$/, (m) => `"${m[1]}" eklendi`],
     [/^Deleted "(.+)"$/, (m) => `"${m[1]}" silindi`],
     [/^Message from (.+) was not read: it has a banned word$/, (m) => `${m[1] === 'someone' ? 'Birinin' : m[1] + ' adlı izleyicinin'} mesajı okunmadı: yasaklı kelime içeriyor`],
+    [/^Message from (.+) was not read: it looks like spam$/, (m) => `${m[1] === 'someone' ? 'Birinin' : m[1] + ' adlı izleyicinin'} mesajı okunmadı: spam gibi görünüyor`],
     [/^Could not subscribe to Kick events: (.+)$/, (m) => `Kick etkinliklerine abone olunamadı: ${m[1]}`],
     [/^Sound file can be at most (\d+) MB$/, (m) => `Ses dosyası en fazla ${m[1]} MB olabilir`],
     [/^You can add at most (\d+) sound rewards$/, (m) => `En fazla ${m[1]} sesli ödül ekleyebilirsin`],
@@ -1110,7 +1141,7 @@
       const vol = Math.round((a.volume ?? 1) * 100);
       return `<div class="alert ${a.enabled === false ? 'off' : ''} ${anim}" data-id="${a.id}">
         <div>
-          <div class="title">${esc(a.title)}</div>
+          <div class="title">${a.color ? `<span class="dot" style="--c:${esc(a.color)}" aria-hidden="true"></span>` : ''}${esc(a.title)}</div>
           <div class="meta">${a.cost} ${t('points')}${a.tts ? ' · 🗣️ ' + t('text-to-speech') : ''}${a.enabled === false ? ' · ' + t('paused') : ''}${a.managed ? '' : ' · ' + t('created in the Kick dashboard')}</div>
         </div>
         <div class="actions">
@@ -1162,14 +1193,33 @@
   $('newTts').addEventListener('change', (e) => newPick.setOptional(e.target.checked));
   $('linkTts').addEventListener('change', (e) => linkPick.setOptional(e.target.checked));
 
+  // Reward color: a preset swatch or the custom picker (the last swatch).
+  const DEFAULT_COLOR = '#00e701';
+  let newColor = DEFAULT_COLOR;
+  $('addForm').addEventListener('change', (e) => {
+    if (e.target.name === 'newColor') { newColor = e.target.value; $('customSwatch').classList.remove('on'); }
+  });
+  $('newColorCustom').addEventListener('input', (e) => {
+    newColor = e.target.value;
+    document.querySelectorAll('input[name=newColor]').forEach((r) => { r.checked = false; });
+    $('customSwatch').classList.add('on');
+    $('customSwatch').style.setProperty('--c', newColor);
+  });
+  function resetColor() {
+    newColor = DEFAULT_COLOR;
+    document.querySelector(`input[name=newColor][value="${DEFAULT_COLOR}"]`).checked = true;
+    $('customSwatch').classList.remove('on');
+  }
+
   $('addForm').addEventListener('submit', (e) => {
     e.preventDefault();
     busy($('addBtn'), async () => {
       const sound = await newPick.sound(me.limits.maxSoundMb);
       const title = $('newTitle').value.trim();
       showAllAlerts = true;
-      render(await api('/api/alerts', 'POST', { title, cost: Number($('newCost').value), sound, tts: $('newTts').checked }), true);
+      render(await api('/api/alerts', 'POST', { title, cost: Number($('newCost').value), sound, tts: $('newTts').checked, color: newColor }), true);
       $('newTitle').value = '';
+      resetColor();
       $('newTts').checked = false;
       newPick.setOptional(false);
       newPick.reset();
