@@ -3,7 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="dark light">
+<script>
+  // Apply the saved theme before first paint so the page never flashes the wrong one.
+  (() => {
+    let pref = 'auto';
+    try { pref = localStorage.getItem('theme') || 'auto'; } catch {}
+    const light = pref === 'light' || (pref === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
+    document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  })();
+</script>
 <title>Kick Sound Alerts</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="apple-touch-icon" href="/favicon.png">
@@ -22,8 +30,9 @@
     --radius: 16px;
     --press: scale(.97);
   }
-  @media (prefers-color-scheme: light) {
-    :root {
+  :root { color-scheme: dark; }
+  :root[data-theme="light"] {
+    color-scheme: light;
       --bg: #f2f2f6; --surface: #ffffff; --surface-2: #f6f6f9; --raised: #ffffff;
       --fill: rgba(0,0,0,.05); --fill-hover: rgba(0,0,0,.08); --fill-press: rgba(0,0,0,.11);
       --line: rgba(0,0,0,.08); --text: #111214; --muted: #636873;
@@ -33,7 +42,6 @@
       --scrim: rgba(0,0,0,.28);
       --shadow-sm: 0 1px 2px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04);
       --shadow-lg: 0 24px 64px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.08);
-    }
   }
 
   * { box-sizing: border-box; }
@@ -77,7 +85,7 @@
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-text); background: var(--surface); }
   textarea { resize: vertical; }
   input[type=range] { accent-color: var(--accent); width: 100%; }
-  label { display: block; font-size: .8125rem; letter-spacing: .005em; color: var(--muted); margin-bottom: .3rem; }
+  label, .field-label { display: block; font-size: .8125rem; letter-spacing: .005em; color: var(--muted); margin-bottom: .3rem; }
   .muted { color: var(--muted); }
   .row { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
 
@@ -142,6 +150,19 @@
   ol.steps { margin: .75rem 0 0; padding-left: 1.25rem; color: var(--muted); font-size: .875rem; }
   ol.steps li { margin-bottom: .2rem; }
   ol.steps b { color: var(--text); font-weight: 600; }
+
+  /* Motion: things arrive by rising into place on a soft spring-like curve */
+  @keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.985); } }
+  @keyframes drop { from { opacity: 0; transform: translateY(-10px); } }
+  @keyframes pop { 40% { transform: scale(1.1); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .reveal > * { animation: rise 640ms cubic-bezier(.2,.9,.3,1) both; animation-delay: calc(var(--i, 0) * 55ms); }
+  .enter { animation: rise 480ms cubic-bezier(.2,.9,.3,1) both; animation-delay: calc(var(--i, 0) * 28ms); }
+  ul.log li.enter { animation-name: drop; }
+  .pop { animation: pop 420ms cubic-bezier(.3,1.4,.5,1); }
+  .spinner { display: inline-block; width: 1em; height: 1em; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite; opacity: .8; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+  #muteBtn { transition: transform 160ms cubic-bezier(.2,.9,.3,1), background-color 300ms, color 300ms; }
 
   /* Live controls */
   .live { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: .5rem; }
@@ -224,9 +245,18 @@
   .grabber { display: none; }
   .mi-search { display: flex; gap: .5rem; }
   .mi-search input { flex: 1; min-width: 0; }
-  .seg { display: inline-flex; gap: 2px; padding: 2px; margin-top: .75rem; background: var(--fill); border-radius: 10px; align-self: flex-start; }
-  .seg button { min-height: 1.875rem; padding: .2rem .9rem; font-size: .8125rem; border-radius: 8px; background: transparent; color: var(--muted); }
-  .seg button.on { background: var(--raised); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+  .seg { position: relative; display: inline-flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: 10px; align-self: flex-start; }
+  #miDialog .seg { margin-top: .75rem; }
+  /* The selected pill slides between options instead of jumping */
+  .seg::before {
+    content: ""; position: absolute; top: 2px; bottom: 2px; left: 0; width: var(--pill-w, 0); border-radius: 8px;
+    background: var(--raised); box-shadow: 0 1px 3px rgba(0,0,0,.18); transform: translateX(var(--pill-x, 0)); opacity: 0;
+    transition: transform 420ms cubic-bezier(.3,1.2,.5,1), width 420ms cubic-bezier(.3,1.2,.5,1), opacity 150ms;
+  }
+  .seg.has-on::before { opacity: 1; }
+  .seg button { position: relative; min-height: 1.875rem; padding: .2rem .9rem; font-size: .8125rem; border-radius: 8px; background: transparent; color: var(--muted); }
+  .seg button:hover { background: transparent; color: var(--text); }
+  .seg button.on { color: var(--text); }
   .mi-results { list-style: none; margin: .6rem 0 0; padding: 0; flex: 1; min-height: 6rem; overflow-y: auto; overscroll-behavior: contain; }
   .mi-results li { display: flex; align-items: center; gap: .5rem; padding: .4rem 0; border-bottom: 1px solid var(--line); }
   .mi-results li:last-child { border-bottom: 0; }
@@ -251,7 +281,8 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { transition-duration: 1ms !important; }
+    *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; animation-delay: 0s !important; }
+    .spinner { animation-duration: 1.4s !important; }
     button:active, .btn:active { transform: none; }
     .menu, .menu-wrap.open .menu { transform: none; }
     #toast { transform: none; }
@@ -395,6 +426,14 @@
           <select id="ttsLang" data-setting="ttsLang"><option value="tr">Türkçe</option><option value="en">English</option></select>
         </div>
         <div class="wide">
+          <span class="field-label" id="themeLabel" data-i18n>Appearance</span>
+          <div class="seg" id="themeSeg" role="radiogroup" aria-labelledby="themeLabel">
+            <button type="button" role="radio" data-pref="auto" data-i18n>Automatic</button>
+            <button type="button" role="radio" data-pref="light" data-i18n>Light</button>
+            <button type="button" role="radio" data-pref="dark" data-i18n>Dark</button>
+          </div>
+        </div>
+        <div class="wide">
           <label for="bannedWords" data-i18n>Banned words for text-to-speech (comma or line separated). Messages with these words are not read.</label>
           <textarea id="bannedWords" rows="3" data-setting="bannedWords"></textarea>
         </div>
@@ -506,6 +545,11 @@
     'Favorites': 'Favoriler',
     'Close': 'Kapat',
     'More': 'Diğer',
+    'Appearance': 'Görünüm',
+    'Automatic': 'Otomatik',
+    'Light': 'Açık',
+    'Dark': 'Koyu',
+    'Copied': 'Kopyalandı',
     'Use': 'Kullan',
     'No sounds found.': 'Ses bulunamadı.',
     'No favorites yet. Tap ☆ on a sound to save it.': 'Henüz favori yok. Kaydetmek için bir sesin ☆ simgesine dokun.',
@@ -584,6 +628,7 @@
     [/^Delete "(.+)"\? The reward will also be removed from your Kick channel\.$/, (m) => `"${m[1]}" silinsin mi? Ödül Kick kanalından da kaldırılacak.`],
     [/^Remove the sound from "(.+)"\? The reward stays on Kick\.$/, (m) => `"${m[1]}" ödülünün sesi kaldırılsın mı? Ödül Kick'te kalır.`],
   ];
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let lang = 'en';
   try { lang = localStorage.getItem('lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en'); } catch {}
 
@@ -671,11 +716,72 @@
   }
 
   async function busy(btn, fn) {
-    const label = btn.textContent;
+    const label = btn.innerHTML;
+    btn.style.minWidth = btn.offsetWidth + 'px'; // keep the button's size while the spinner shows
     btn.disabled = true;
-    btn.textContent = '…';
-    try { await fn(); } catch (e) { toast(e.message, true); } finally { btn.disabled = false; btn.textContent = label; }
+    btn.innerHTML = '<span class="spinner" aria-hidden="true"></span>';
+    try { await fn(); } catch (e) { toast(e.message, true); } finally { btn.disabled = false; btn.innerHTML = label; btn.style.minWidth = ''; }
   }
+
+  // Restarts a one-shot CSS animation class on an element.
+  function replay(el, cls) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+  }
+
+  // Shows/hides an element, letting it rise in when it appears.
+  function reveal(el, visible) {
+    if (visible && el.hidden) replay(el, 'enter');
+    el.hidden = !visible;
+  }
+
+  // Segmented control: slide the pill under the selected button.
+  function movePill(seg) {
+    const on = seg.querySelector('button.on');
+    seg.classList.toggle('has-on', Boolean(on));
+    if (!on) return;
+    seg.style.setProperty('--pill-x', on.offsetLeft - 2 + 'px');
+    seg.style.setProperty('--pill-w', on.offsetWidth + 'px');
+  }
+
+  // Theme: auto follows the system; changes are revealed in a circle growing from the pressed control.
+  let themePref = 'auto';
+  try { themePref = localStorage.getItem('theme') || 'auto'; } catch {}
+  const lightQuery = matchMedia('(prefers-color-scheme: light)');
+  const effectiveTheme = () => (themePref === 'auto' ? (lightQuery.matches ? 'light' : 'dark') : themePref);
+
+  function syncThemeSeg() {
+    for (const b of $('themeSeg').querySelectorAll('button')) {
+      b.classList.toggle('on', b.dataset.pref === themePref);
+      b.setAttribute('aria-checked', b.dataset.pref === themePref);
+    }
+    movePill($('themeSeg'));
+  }
+
+  function setTheme(pref, from) {
+    themePref = pref;
+    try { localStorage.setItem('theme', pref); } catch {}
+    syncThemeSeg();
+    const next = effectiveTheme();
+    if (document.documentElement.dataset.theme === next) return;
+    const apply = () => { document.documentElement.dataset.theme = next; };
+    if (!document.startViewTransition || reduceMotion.matches) return apply();
+    const r = from?.getBoundingClientRect();
+    const x = r ? r.left + r.width / 2 : innerWidth / 2, y = r ? r.top + r.height / 2 : 0;
+    const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+    document.startViewTransition(apply).ready.then(() => {
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: 650, easing: 'cubic-bezier(.2,.9,.3,1)', pseudoElement: '::view-transition-new(root)' },
+      );
+    });
+  }
+  $('themeSeg').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-pref]');
+    if (b) setTheme(b.dataset.pref, b);
+  });
+  lightQuery.addEventListener('change', () => { if (themePref === 'auto') setTheme('auto'); });
 
   // A sound comes from a local file or a myinstants pick; sound() returns what /api/alerts expects
   // (null when the sound is optional, i.e. a text-to-speech reward, and nothing was picked).
@@ -713,7 +819,7 @@
   function showMi(list, emptyMsg) {
     miList = list;
     $('miResults').innerHTML = list.length
-      ? list.map((r, i) => `<li><button class="small ghost" type="button" data-mi="play" data-i="${i}" aria-label="${esc(t('Listen here'))}: ${esc(r.title)}">▶</button>
+      ? list.map((r, i) => `<li class="enter" style="--i:${Math.min(i, 12)}"><button class="small ghost" type="button" data-mi="play" data-i="${i}" aria-label="${esc(t('Listen here'))}: ${esc(r.title)}">▶</button>
           <span title="${esc(r.title)}">${esc(r.title)}</span>
           <button class="small ghost ${isFav(r.url) ? 'fav' : ''}" type="button" data-mi="fav" data-i="${i}" aria-pressed="${isFav(r.url)}" aria-label="${esc(t('Favorites'))}">${isFav(r.url) ? '★' : '☆'}</button>
           <button class="small primary" type="button" data-mi="use" data-i="${i}">${esc(t('Use'))}</button></li>`).join('')
@@ -723,6 +829,7 @@
   function miTab(tab) {
     $('miTrending').classList.toggle('on', tab === 'trending');
     $('miFavs').classList.toggle('on', tab === 'favs');
+    movePill($('miFavs').parentElement);
     if (tab === 'favs') return showMi(me.favorites, 'No favorites yet. Tap ☆ on a sound to save it.');
     return miLoad('');
   }
@@ -736,7 +843,6 @@
 
   // The picker is one progress value p (0 closed, 1 open) driven by a spring. Phones get a bottom sheet
   // you can drag and flick away; wider screens get a panel that grows out of the button that opened it.
-  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const asSheet = matchMedia('(max-width: 640px)');
   const dlg = $('miDialog'), panel = $('miPanel'), scrim = $('miScrim');
   let sheetP = 0, stopSheet = null;
@@ -835,6 +941,7 @@
     const q = $('miQuery').value.trim();
     $('miTrending').classList.remove('on');
     $('miFavs').classList.remove('on');
+    movePill($('miFavs').parentElement);
     if (q) miLoad(q); else miTab('trending');
   });
   $('miResults').addEventListener('click', async (e) => {
@@ -874,22 +981,33 @@
   }
 
   function showLanding() {
+    if ($('landing').hidden) {
+      [...$('landing').children].forEach((el, i) => el.style.setProperty('--i', i));
+      $('landing').classList.add('reveal');
+    }
     $('landing').hidden = false;
     $('app').hidden = true;
   }
 
+  let firstRender = true, lastLogT = 0, lastOn = null;
   function render(state, force) {
     me = state;
     $('landing').hidden = true;
-    $('app').hidden = false;
+    if ($('app').hidden) {
+      $('app').hidden = false;
+      [...$('app').children].forEach((el, i) => el.style.setProperty('--i', i));
+      $('app').classList.add('reveal');
+    }
     $('userName').textContent = state.user.name;
     if (state.user.avatar) $('avatar').src = state.user.avatar; else $('avatar').removeAttribute('src');
-    $('bannerRelogin').hidden = !state.needsRelogin;
-    $('bannerRepair').hidden = state.needsRelogin || state.subscribed;
-    $('bannerMuted').hidden = !state.muted;
+    reveal($('bannerRelogin'), state.needsRelogin);
+    reveal($('bannerRepair'), !state.needsRelogin && !state.subscribed);
+    reveal($('bannerMuted'), state.muted);
 
     const on = state.overlays > 0;
     $('obsStatus').className = 'status ' + (on ? 'on' : 'off');
+    if (lastOn !== null && lastOn !== on) replay($('obsStatus'), 'pop');
+    lastOn = on;
     $('obsStatus').textContent = t(on ? 'OBS connected' : 'OBS not connected');
     $('overlayUrl').textContent = state.overlayUrl.replace(state.overlayKey, '•'.repeat(12));
 
@@ -910,8 +1028,11 @@
     }
 
     $('log').innerHTML = state.logs.length
-      ? state.logs.slice().reverse().map((l) => `<li><time>${new Date(l.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><span>${esc(t(l.msg))}</span></li>`).join('')
+      ? state.logs.slice().reverse().map((l) => `<li class="${!firstRender && l.t > lastLogT ? 'enter' : ''}"><time>${new Date(l.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><span>${esc(t(l.msg))}</span></li>`).join('')
       : `<li class="muted">${esc(t('Redemptions will show up here.'))}</li>`;
+
+    lastLogT = Math.max(lastLogT, ...state.logs.map((l) => l.t));
+    syncThemeSeg();
 
     const key = JSON.stringify(state.alerts);
     if (force || (key !== alertsKey && !editingId && !draggingVolume && !document.querySelector('.menu-wrap.open'))) {
@@ -919,10 +1040,14 @@
       renderAlerts();
     }
     $('addBtn').disabled = state.alerts.length >= state.limits.maxAlerts;
+    firstRender = false;
   }
 
+  let knownAlertIds = null;
   function renderAlerts() {
     const list = me.alerts;
+    const isNew = (a) => knownAlertIds && !knownAlertIds.has(a.id);
+    knownAlertIds = new Set(list.map((a) => a.id));
     if (!list.length) {
       $('alerts').innerHTML = `<div class="empty">${esc(t('No sound rewards yet. Add your first one below.'))}</div>`;
       return;
@@ -938,7 +1063,7 @@
           </div></div>`;
       }
       const vol = Math.round((a.volume ?? 1) * 100);
-      return `<div class="alert ${a.enabled === false ? 'off' : ''}" data-id="${a.id}">
+      return `<div class="alert ${a.enabled === false ? 'off' : ''} ${isNew(a) ? 'enter' : ''}" data-id="${a.id}">
         <div>
           <div class="title">${esc(a.title)}</div>
           <div class="meta">${a.cost} ${t('points')}${a.tts ? ' · 🗣️ ' + t('text-to-speech') : ''}${a.enabled === false ? ' · ' + t('paused') : ''}${a.managed ? '' : ' · ' + t('created in the Kick dashboard')}</div>
@@ -1078,7 +1203,15 @@
       } else if (act === 'delete') {
         const msg = a.managed ? `Delete "${a.title}"? The reward will also be removed from your Kick channel.` : `Remove the sound from "${a.title}"? The reward stays on Kick.`;
         if (!confirm(t(msg))) return;
-        render(await api(`/api/alerts/${id}`, 'DELETE'), true);
+        const state = await api(`/api/alerts/${id}`, 'DELETE');
+        const row = btn.closest('.alert');
+        if (!reduceMotion.matches) {
+          await row.animate(
+            [{ opacity: 1, transform: 'none', height: row.offsetHeight + 'px' }, { opacity: 0, transform: 'scale(.96)', height: '0px', paddingTop: '0px', paddingBottom: '0px', marginBottom: '-.5rem' }],
+            { duration: 340, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'forwards' },
+          ).finished;
+        }
+        render(state, true);
         toast('Deleted');
       }
     });
@@ -1144,6 +1277,7 @@
 
   $('muteBtn').addEventListener('click', (e) => busy(e.currentTarget, async () => {
     const state = await api('/api/settings', 'POST', { muted: !me.muted });
+    replay($('muteBtn'), 'pop');
     toast(state.muted ? 'All sounds muted' : 'Sounds unmuted');
     render(state, false);
   }));
@@ -1158,6 +1292,12 @@
     try {
       await navigator.clipboard.writeText(me.overlayUrl);
       toast('Link copied. Now paste it into OBS.');
+      const b = $('copyOverlay');
+      b.style.minWidth = b.offsetWidth + 'px';
+      b.textContent = '✓ ' + t('Copied');
+      replay(b, 'pop');
+      clearTimeout(b.t);
+      b.t = setTimeout(() => { b.textContent = t('Copy'); b.style.minWidth = ''; }, 1600);
     } catch {
       prompt(t('Copy the link:'), me.overlayUrl);
     }
