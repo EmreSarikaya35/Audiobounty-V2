@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+  (() => {
+    let pref = 'auto';
+    try { pref = localStorage.getItem('theme') || 'auto'; } catch {}
+    const light = pref === 'light' || (pref === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
+    document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  })();
+</script>
+<title>AudioBounty Admin</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔊</text></svg>">
+<link rel="stylesheet" href="/style.css">
+<style>
+  main { max-width: 60rem; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; margin-bottom: 1rem; }
+  .stats div { background: var(--surface); box-shadow: var(--shadow-sm); border-radius: var(--radius); padding: .9rem 1rem; }
+  .stats b { display: block; font-size: 1.5rem; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stats span { color: var(--muted); font-size: .8125rem; }
+  .users { display: flex; flex-direction: column; gap: .5rem; margin-top: .75rem; }
+  .user { background: var(--surface-2); border-radius: 14px; padding: .75rem .9rem; display: grid; grid-template-columns: 2.5rem minmax(0,1fr) auto; gap: .75rem; align-items: center; }
+  .user.banned { opacity: .6; }
+  .user img { width: 2.5rem; height: 2.5rem; border-radius: 50%; background: var(--fill); object-fit: cover; }
+  .user .title { font-weight: 650; letter-spacing: -.01em; overflow-wrap: anywhere; display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+  .user .meta { font-size: .8125rem; color: var(--muted); }
+  .user .actions { display: flex; gap: .35rem; flex-wrap: wrap; justify-content: flex-end; }
+  .tag { font-size: .75rem; font-weight: 600; padding: .05rem .5rem; border-radius: 99px; background: var(--fill); color: var(--muted); }
+  .tag.red { background: var(--danger-soft); color: var(--danger); }
+  .tag.green { background: var(--accent-soft); color: var(--accent-text); }
+  .tag.amber { background: var(--warn-soft); color: var(--warn); }
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+    .user { grid-template-columns: 2.5rem minmax(0,1fr); }
+    .user .actions { grid-column: 1 / -1; justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <span class="brand" aria-hidden="true">🔊</span>
+    <span class="name">AudioBounty Admin</span>
+    <a class="btn ghost small" href="/" data-i18n>My dashboard</a>
+    <button class="ghost small lang-btn" type="button" aria-label="Language / Dil">TR / EN</button>
+    <div class="menu-wrap theme-wrap">
+      <button class="ghost small theme-btn" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false">◐</button>
+      <div class="menu" role="menu">
+        <button role="menuitemradio" data-pref="auto">◐ <span data-i18n>Automatic</span></button>
+        <button role="menuitemradio" data-pref="light">☀︎ <span data-i18n>Light</span></button>
+        <button role="menuitemradio" data-pref="dark">☾ <span data-i18n>Dark</span></button>
+      </div>
+    </div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <section class="card">
+    <h2 data-i18n>Streamers</h2>
+    <p class="lead" data-i18n>Open a streamer to see and change their rewards, sounds and settings as if you were them.</p>
+    <input type="search" id="search" data-i18n-ph="Search by name or Kick ID" autocomplete="off">
+    <div class="users" id="users"></div>
+  </section>
+
+  <section class="card">
+    <h2 data-i18n>Site settings</h2>
+    <p class="lead" data-i18n>These apply to every streamer.</p>
+    <div class="settings">
+      <div class="wide">
+        <label for="globalBanned" data-i18n>Banned words for everyone (comma or one per line)</label>
+        <textarea id="globalBanned" rows="3"></textarea>
+      </div>
+      <label class="check wide"><input type="checkbox" class="switch" role="switch" id="signupsClosed"> <span data-i18n>Close new sign-ups (existing streamers can still log in)</span></label>
+      <div><button class="primary" id="saveSettings" data-i18n>Save</button></div>
+    </div>
+  </section>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const TR = {
+    'My dashboard': 'Kendi panelim',
+    'Automatic': 'Otomatik',
+    'Light': 'Açık',
+    'Dark': 'Koyu',
+    'Streamers': 'Yayıncılar',
+    'Open a streamer to see and change their rewards, sounds and settings as if you were them.': 'Bir yayıncıyı açarak ödüllerini, seslerini ve ayarlarını onun yerine görüp değiştirebilirsin.',
+    'Search by name or Kick ID': 'Ad veya Kick ID ile ara',
+    'Site settings': 'Site ayarları',
+    'These apply to every streamer.': 'Bunlar tüm yayıncılar için geçerli.',
+    'Banned words for everyone (comma or one per line)': 'Herkes için yasaklı kelimeler (virgülle veya her satıra bir tane)',
+    'Close new sign-ups (existing streamers can still log in)': 'Yeni kayıtları kapat (mevcut yayıncılar giriş yapmaya devam eder)',
+    'Save': 'Kaydet',
+    'Saved': 'Kaydedildi',
+    'Streamers total': 'Toplam yayıncı',
+    'OBS connected now': 'Şu an OBS bağlı',
+    'Redemptions': 'Ödül kullanımı',
+    'Banned': 'Yasaklı',
+    'Open': 'Aç',
+    'Ban': 'Yasakla',
+    'Unban': 'Yasağı kaldır',
+    'Delete': 'Sil',
+    'you': 'sen',
+    'admin': 'admin',
+    'muted': 'sessiz',
+    'OBS on': 'OBS açık',
+    'Kick not connected': 'Kick bağlı değil',
+    'never': 'hiç',
+    'No streamers found': 'Yayıncı bulunamadı',
+    'Theme': 'Tema',
+    'Something went wrong': 'Bir şeyler ters gitti',
+    "You can't ban yourself": 'Kendini yasaklayamazsın',
+    'Delete your own account from your dashboard': 'Kendi hesabını kendi panelinden sil',
+    'User not found': 'Kullanıcı bulunamadı',
+  };
+  const TR_PATTERNS = [
+    [/^(\d+) rewards · (\d+) redemptions · last (.+)$/, (m) => `${m[1]} ödül · ${m[2]} kullanım · son ${t(m[3])}`],
+    [/^Joined (.+) · last login (.+)$/, (m) => `Kayıt ${m[1]} · son giriş ${t(m[2])}`],
+    [/^Ban (.+)\? They can't log in and their sounds stop playing until you lift the ban\.$/, (m) => `${m[1]} yasaklansın mı? Yasağı kaldırana kadar giriş yapamaz ve sesleri çalmaz.`],
+    [/^Delete (.+)\? Their sounds, settings and the Kick rewards created here will be removed\. This cannot be undone\.$/, (m) => `${m[1]} silinsin mi? Sesleri, ayarları ve burada oluşturulan Kick ödülleri kaldırılır. Bu geri alınamaz.`],
+  ];
+  let lang = 'en';
+  try { lang = localStorage.getItem('lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en'); } catch {}
+  function t(text) {
+    if (lang !== 'tr') return text;
+    if (TR[text]) return TR[text];
+    for (const [re, fn] of TR_PATTERNS) { const m = String(text).match(re); if (m) return fn(m); }
+    return text;
+  }
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const when = (ms) => (ms ? new Date(ms).toLocaleString(lang === 'tr' ? 'tr-TR' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'never');
+  const day = (iso) => (iso ? new Date(iso).toLocaleDateString(lang === 'tr' ? 'tr-TR' : 'en-GB', { dateStyle: 'medium' }) : '?');
+
+  function toast(msg, err) {
+    const el = $('toast');
+    el.textContent = t(msg);
+    el.classList.toggle('err', Boolean(err));
+    el.classList.add('show');
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => el.classList.remove('show'), err ? 6000 : 3000);
+  }
+
+  async function api(path, method = 'GET', body) {
+    const res = await fetch(path, {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json.error || 'Something went wrong');
+    return json;
+  }
+
+  async function busy(btn, fn) {
+    const label = btn.innerHTML;
+    btn.style.minWidth = btn.offsetWidth + 'px';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" aria-hidden="true"></span>';
+    try { await fn(); } catch (e) { toast(e.message, true); } finally { btn.disabled = false; btn.innerHTML = label; btn.style.minWidth = ''; }
+  }
+
+  let state = null;
+  let settingsDirty = false;
+
+  function render(s) {
+    state = s;
+    const users = s.users;
+    $('stats').innerHTML = [
+      [users.length, 'Streamers total'],
+      [users.reduce((n, u) => n + (u.overlays > 0), 0), 'OBS connected now'],
+      [users.reduce((n, u) => n + u.redemptions, 0), 'Redemptions'],
+      [users.filter((u) => u.banned).length, 'Banned'],
+    ].map(([n, label]) => `<div><b>${n}</b><span>${esc(t(label))}</span></div>`).join('');
+
+    const q = $('search').value.trim().toLocaleLowerCase('tr');
+    const shown = users.filter((u) => !q || String(u.name).toLocaleLowerCase('tr').includes(q) || u.id.includes(q));
+    $('users').innerHTML = shown.length ? shown.map((u) => `
+      <div class="user${u.banned ? ' banned' : ''}">
+        ${u.avatar ? `<img src="${esc(u.avatar)}" alt="">` : '<img alt="">'}
+        <div>
+          <div class="title">${esc(u.name)} <span class="meta">#${esc(u.id)}</span>
+            ${u.admin ? `<span class="tag green">${t('admin')}</span>` : ''}
+            ${u.banned ? `<span class="tag red">${t('Banned')}</span>` : ''}
+            ${u.muted ? `<span class="tag amber">${t('muted')}</span>` : ''}
+            ${u.overlays ? `<span class="tag green">${t('OBS on')}</span>` : ''}
+            ${u.connected ? '' : `<span class="tag amber">${t('Kick not connected')}</span>`}
+          </div>
+          <div class="meta">${esc(t(`${u.alerts} rewards · ${u.redemptions} redemptions · last ${when(u.lastRedemption)}`))}</div>
+          <div class="meta">${esc(t(`Joined ${day(u.createdAt)} · last login ${when(u.lastLogin)}`))}</div>
+        </div>
+        <div class="actions">
+          <button class="primary small" data-act="view" data-id="${u.id}">${t('Open')}</button>
+          ${u.admin ? '' : `<button class="small" data-act="ban" data-id="${u.id}">${t(u.banned ? 'Unban' : 'Ban')}</button>
+          <button class="small danger" data-act="delete" data-id="${u.id}">${t('Delete')}</button>`}
+        </div>
+      </div>`).join('') : `<div class="empty">${t('No streamers found')}</div>`;
+
+    if (!settingsDirty) {
+      $('globalBanned').value = s.settings.bannedWords.join(', ');
+      $('signupsClosed').checked = s.settings.signupsClosed;
+    }
+  }
+
+  $('users').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+    const u = state.users.find((x) => x.id === btn.dataset.id);
+    if (btn.dataset.act === 'view') {
+      return busy(btn, async () => {
+        await api(`/api/admin/users/${u.id}/view`, 'POST');
+        location.href = '/';
+      });
+    }
+    if (btn.dataset.act === 'ban') {
+      if (!u.banned && !confirm(t(`Ban ${u.name}? They can't log in and their sounds stop playing until you lift the ban.`))) return;
+      return busy(btn, async () => render(await api(`/api/admin/users/${u.id}`, 'PATCH', { banned: !u.banned })));
+    }
+    if (btn.dataset.act === 'delete') {
+      if (!confirm(t(`Delete ${u.name}? Their sounds, settings and the Kick rewards created here will be removed. This cannot be undone.`))) return;
+      return busy(btn, async () => render(await api(`/api/admin/users/${u.id}`, 'DELETE')));
+    }
+  });
+
+  $('search').addEventListener('input', () => render(state));
+  $('globalBanned').addEventListener('input', () => { settingsDirty = true; });
+  $('saveSettings').addEventListener('click', (e) => busy(e.currentTarget, async () => {
+    settingsDirty = false;
+    render(await api('/api/admin/settings', 'POST', { bannedWords: $('globalBanned').value, signupsClosed: $('signupsClosed').checked }));
+    toast('Saved');
+  }));
+
+  // Language and theme, same as the dashboard
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll('[data-i18n]').forEach((el) => { el.dataset.en ??= el.innerHTML.trim(); el.innerHTML = t(el.dataset.en); });
+    document.querySelectorAll('[data-i18n-ph]').forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+    document.querySelectorAll('.lang-btn').forEach((el) => { el.textContent = lang === 'tr' ? 'English' : 'Türkçe'; });
+    syncTheme();
+    if (state) render(state);
+  }
+  document.querySelector('.lang-btn').addEventListener('click', () => {
+    lang = lang === 'tr' ? 'en' : 'tr';
+    try { localStorage.setItem('lang', lang); } catch {}
+    applyLang();
+  });
+
+  let themePref = 'auto';
+  try { themePref = localStorage.getItem('theme') || 'auto'; } catch {}
+  const lightQuery = matchMedia('(prefers-color-scheme: light)');
+  const THEME_ICON = { auto: '◐', light: '☀︎', dark: '☾' };
+  function syncTheme() {
+    document.documentElement.dataset.theme = themePref === 'auto' ? (lightQuery.matches ? 'light' : 'dark') : themePref;
+    const btn = document.querySelector('.theme-btn');
+    btn.textContent = THEME_ICON[themePref];
+    btn.setAttribute('aria-label', t('Theme'));
+    document.querySelectorAll('[data-pref]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.pref === themePref)));
+  }
+  lightQuery.addEventListener('change', syncTheme);
+  const themeWrap = document.querySelector('.theme-wrap');
+  themeWrap.querySelector('.theme-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = themeWrap.classList.toggle('open');
+    e.currentTarget.setAttribute('aria-expanded', String(open));
+  });
+  themeWrap.querySelectorAll('[data-pref]').forEach((b) => b.addEventListener('click', () => {
+    themePref = b.dataset.pref;
+    try { localStorage.setItem('theme', themePref); } catch {}
+    syncTheme();
+  }));
+  document.addEventListener('click', () => themeWrap.classList.remove('open'));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') themeWrap.classList.remove('open'); });
+  addEventListener('scroll', () => document.querySelector('header.top').classList.toggle('scrolled', scrollY > 4), { passive: true });
+
+  applyLang();
+  const load = () => api('/api/admin').then(render).catch((e) => toast(e.message, true));
+  load();
+  setInterval(() => { if (!document.hidden) load(); }, 10000);
+</script>
+</body>
+</html>

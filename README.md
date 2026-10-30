@@ -82,6 +82,17 @@ Search myinstants.com, see trending sounds, listen before choosing and star favo
 - Long lists (rewards, recent activity) show the first 3 with **Show all**.
 - Respects the system's reduced motion, reduced transparency and increased contrast settings.
 
+### Admin panel
+
+Set `ADMIN_KICK_IDS` to your Kick user id (comma-separated for more than one admin). Admins get an **Admin** link in the dashboard header that opens `/admin`, where they can:
+
+- See every streamer: rewards, redemption count, last redemption, last login, whether OBS is connected, muted or banned.
+- **Open** a streamer's dashboard and change anything in it as if they were that streamer. A banner shows whose dashboard is open; changes are marked "(admin)" in their recent activity.
+- **Ban** a streamer (they can't log in and their sounds stop playing) or **delete** them (their Kick rewards, sounds and settings are removed).
+- Set banned words that apply to every streamer's text-to-speech, and close new sign-ups.
+
+Kick tokens are never sent to the browser, not even to admins. To find your Kick id, log in once and look for `Login: <name> (id <id>)` in the server log (`docker compose logs app`), or check the file names in `DATA_DIR/users/`. Restart the server after changing `ADMIN_KICK_IDS`.
+
 ---
 
 ## Self-hosting
@@ -245,8 +256,9 @@ All settings are environment variables, read from `.env`.
 | `MAX_SOUND_MB` | Max sound file size, default `5`; also applies to myinstants sounds |
 | `MAX_ALERTS` | Max sound rewards per streamer, default `30` (Kick's limit is 50) |
 | `SESSION_SECRET` | Cookie signing secret; generated and stored in the data directory if empty |
+| `ADMIN_KICK_IDS` | Kick user ids that can open the admin panel, comma-separated |
 
-Everything a streamer sets in the dashboard (rewards, volumes, text-to-speech, banned words, favorites, mute) is stored per streamer in `DATA_DIR/users/<id>.json`. Language and theme are stored in the browser.
+Everything a streamer sets in the dashboard (rewards, volumes, text-to-speech, banned words, favorites, mute) is stored per streamer in `DATA_DIR/users/<id>.json`. Site-wide admin settings are in `DATA_DIR/settings.json`. Language and theme are stored in the browser.
 
 ## Other ways to run it
 
@@ -307,6 +319,7 @@ Set the `https://….trycloudflare.com` address as `PUBLIC_URL`, update the Redi
 - Kick tokens are stored server-side only, in `DATA_DIR/users/*.json`. Protect that directory and `.env`.
 - The server only downloads sounds from `https://www.myinstants.com/media/sounds/`, without following redirects, so the picker can't be used to make it fetch other addresses.
 - Reward colors must be `#rrggbb`; anything else is ignored.
+- The admin panel and its API answer 404 to anyone not listed in `ADMIN_KICK_IDS`. Admin actions are written to the server log.
 
 ## Project structure
 
@@ -316,6 +329,8 @@ server.js                 HTTP server: sessions, webhook, dashboard API, overlay
 lib/kick.js               Kick OAuth, API client and webhook signature verification
 lib/store.js              JSON file storage (data/users/*.json, data/sounds/<id>/)
 public/index.html         Landing page and streamer dashboard
+public/admin.html         Admin panel (/admin)
+public/style.css          Shared styles for the dashboard and admin panel
 public/overlay.html       OBS browser source: queue, on-stream card, text-to-speech
 .env.example              Settings template
 Dockerfile                App image

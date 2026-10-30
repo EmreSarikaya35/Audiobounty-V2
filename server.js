@@ -17,6 +17,9 @@ const MAX_ALERTS = Math.min(Number(process.env.MAX_ALERTS) || 30, 50); // Kick a
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const SECURE_COOKIE = PUBLIC_URL.startsWith('https://');
 const PUBLIC_ORIGIN = new URL(PUBLIC_URL).origin;
+// Kick user ids, not names: a name can be changed and then taken by someone else.
+const ADMIN_IDS = new Set((process.env.ADMIN_KICK_IDS || '').split(',').map((s) => s.trim()).filter(Boolean));
+const isAdmin = (user) => Boolean(user && ADMIN_IDS.has(String(user.id)));
 
 // The landing page carries absolute URLs (canonical, Open Graph, schema) filled from PUBLIC_URL.
 // It's read once at startup, so restart the server after editing public/index.html.
@@ -48,6 +51,8 @@ if (!process.env.KICK_CLIENT_ID || !process.env.KICK_CLIENT_SECRET) {
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const SESSION_SECRET = process.env.SESSION_SECRET || persistentSecret(path.join(DATA_DIR, 'session-secret'));
 const store = createStore(DATA_DIR);
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+const siteSettings = { bannedWords: [], signupsClosed: false, ...readJsonFile(SETTINGS_FILE) };
 const kick = createKick({
   clientId: process.env.KICK_CLIENT_ID,
   clientSecret: process.env.KICK_CLIENT_SECRET,
@@ -61,6 +66,19 @@ function loadEnvFile(file) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
     if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
   }
+}
+
+function readJsonFile(file) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function saveSiteSettings() {
+  fs.writeFileSync(SETTINGS_FILE + '.tmp', JSON.stringify(siteSettings, null, 2));
+  fs.renameSync(SETTINGS_FILE + '.tmp', SETTINGS_FILE);
 }
 
 function persistentSecret(file) {
@@ -102,8 +120,11 @@ const TTS_LANGS = ['tr', 'en'];
 const words = (s) => s.toLocaleLowerCase('tr').match(/[\p{L}\p{N}]+/gu) || [];
 function hasBannedWord(user, text) {
   const padded = ` ${words(text).join(' ')} `;
-  return (user.bannedWords || []).some((w) => padded.includes(` ${words(w).join(' ')} `));
+  return [...(user.bannedWords || []), ...siteSettings.bannedWords].some((w) => padded.includes(` ${words(w).join(' ')} `));
 }
+
+const parseWordList = (s) =>
+  [...new Set(String(s).split(/[,\n]/).map((w) => w.trim().toLocaleLowerCase('tr')).filter(Boolean))].slice(0, 200).map((w) => w.slice(0, 40));
 
 // Spam for TTS: one character 5+ times in a row ignoring spaces ("ğğğğğ", "- - - - -"), no letters or digits
 // at all, or a single character making up most of a longer message ("ğğ ğğ ağğ").
@@ -146,7 +167,7 @@ const norm = (s) => String(s || '').trim().toLowerCase();
 
 function handleRedemption(evt) {
   const user = store.get(evt.broadcaster?.user_id);
-  if (!user || evt.status === 'rejected') return;
+  if (!user || user.banned || evt.status === 'rejected') return;
   if (alreadySeen(`r:${evt.id}`)) return;
   const who = evt.redeemer?.username || '';
   const alert =
@@ -167,6 +188,8 @@ function handleRedemption(evt) {
     }
   }
   if (!playAlert(user, alert, who, text)) return;
+  user.stats = { redemptions: (user.stats?.redemptions || 0) + 1, lastAt: Date.now() };
+  store.save(user);
   ulog(user, `${who || 'Someone'} redeemed "${alert.title}"${overlayCount(user) ? '' : ' (OBS was not connected!)'}`);
 }
 
@@ -203,7 +226,26 @@ function sessionUser(req) {
   const expected = sign(value);
   if (!sig || sig.length !== expected.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
   if (Number(exp) < Date.now()) return null;
-  return store.get(id) || null;
+  const user = store.get(id);
+  return user && !user.banned ? user : null;
+}
+
+// OBS-facing routes stop working for banned streamers.
+function overlayUser(key) {
+  const user = store.getByOverlayKey(key);
+  return user && !user.banned ? user : null;
+}
+
+function closeOverlays(user) {
+  for (const r of overlays.get(user.id) || []) r.end();
+  overlays.delete(user.id);
+}
+
+async function deleteAccount(user) {
+  await kick.unsubscribe(user).catch(() => {});
+  for (const a of user.alerts) if (a.managed && a.rewardId) await kick.deleteReward(user, a.rewardId).catch(() => {});
+  closeOverlays(user);
+  store.remove(user);
 }
 
 // Holds the PKCE verifier while the streamer is on Kick's login page (10 min)
@@ -379,8 +421,10 @@ function meState(user) {
   };
 }
 
-async function handleApi(req, res, user, p) {
+// `admin` is set when an admin is working in this streamer's dashboard.
+async function handleApi(req, res, user, p, admin) {
   const m = req.method;
+  const log = (msg) => ulog(user, admin ? `${msg} (admin)` : msg);
 
   if (p === '/api/me' && m === 'GET') return sendJson(res, 200, meState(user));
 
@@ -447,7 +491,7 @@ async function handleApi(req, res, user, p) {
     alert.enabled = true;
     user.alerts.push(alert);
     store.save(user);
-    ulog(user, `Added "${alert.title}"`);
+    log(`Added "${alert.title}"`);
     return sendJson(res, 200, meState(user));
   }
 
@@ -498,7 +542,7 @@ async function handleApi(req, res, user, p) {
       removeSound(user, alert.file);
       user.alerts = user.alerts.filter((a) => a !== alert);
       store.save(user);
-      ulog(user, `Deleted "${alert.title}"`);
+      log(`Deleted "${alert.title}"`);
       return sendJson(res, 200, meState(user));
     }
   }
@@ -509,17 +553,13 @@ async function handleApi(req, res, user, p) {
     if (b.muted !== undefined) {
       user.muted = Boolean(b.muted);
       if (user.muted) sendToOverlays(user, { type: 'clear' });
-      ulog(user, user.muted ? 'All sounds muted' : 'Sounds unmuted');
+      log(user.muted ? 'All sounds muted' : 'Sounds unmuted');
     }
     if (b.maxDuration !== undefined) user.maxDuration = Math.max(0, Math.min(60, Math.round(Number(b.maxDuration)) || 0));
     if (b.normalize !== undefined) user.normalize = Boolean(b.normalize);
     if (b.card !== undefined) user.card = Boolean(b.card);
     if (b.ttsLang !== undefined && TTS_LANGS.includes(b.ttsLang)) user.ttsLang = b.ttsLang;
-    if (b.bannedWords !== undefined) {
-      user.bannedWords = [...new Set(String(b.bannedWords).split(/[,\n]/).map((w) => w.trim().toLocaleLowerCase('tr')).filter(Boolean))]
-        .slice(0, 200)
-        .map((w) => w.slice(0, 40));
-    }
+    if (b.bannedWords !== undefined) user.bannedWords = parseWordList(b.bannedWords);
     store.save(user);
     return sendJson(res, 200, meState(user));
   }
@@ -530,26 +570,94 @@ async function handleApi(req, res, user, p) {
   }
 
   if (p === '/api/overlay/regenerate' && m === 'POST') {
-    for (const r of overlays.get(user.id) || []) r.end();
-    overlays.delete(user.id);
+    closeOverlays(user);
     store.regenerateOverlayKey(user);
-    ulog(user, 'OBS link regenerated; the old link no longer works');
+    log('OBS link regenerated; the old link no longer works');
     return sendJson(res, 200, meState(user));
   }
 
   if (p === '/api/repair' && m === 'POST') {
     await kick.ensureSubscription(user);
-    ulog(user, 'Kick connection repaired');
+    log('Kick connection repaired');
     return sendJson(res, 200, meState(user));
   }
 
   if (p === '/api/account' && m === 'DELETE') {
-    await kick.unsubscribe(user).catch(() => {});
-    for (const a of user.alerts) if (a.managed && a.rewardId) await kick.deleteReward(user, a.rewardId).catch(() => {});
-    for (const r of overlays.get(user.id) || []) r.end();
-    overlays.delete(user.id);
-    store.remove(user);
-    res.setHeader('Set-Cookie', cookie('sid', '', 0));
+    await deleteAccount(user);
+    res.setHeader('Set-Cookie', cookie(admin ? 'as' : 'sid', '', 0));
+    return sendJson(res, 200, { ok: true });
+  }
+
+  throw new HttpError(404, 'Not found');
+}
+
+function adminState() {
+  const users = store
+    .all()
+    .map((u) => ({
+      id: u.id,
+      name: u.name,
+      avatar: u.avatar,
+      createdAt: u.createdAt,
+      lastLogin: u.lastLogin || null,
+      alerts: u.alerts.length,
+      redemptions: u.stats?.redemptions || 0,
+      lastRedemption: u.stats?.lastAt || null,
+      overlays: overlayCount(u),
+      muted: Boolean(u.muted),
+      banned: Boolean(u.banned),
+      connected: Boolean(u.tokens && u.subscription),
+      admin: isAdmin(u),
+    }))
+    .sort((a, b) => (b.lastRedemption || 0) - (a.lastRedemption || 0) || String(b.createdAt).localeCompare(String(a.createdAt)));
+  return { users, settings: siteSettings };
+}
+
+async function handleAdmin(req, res, admin, p) {
+  const m = req.method;
+  if (p === '/api/admin' && m === 'GET') return sendJson(res, 200, adminState());
+
+  if (p === '/api/admin/settings' && m === 'POST') {
+    const b = await readJson(req);
+    if (b.bannedWords !== undefined) siteSettings.bannedWords = parseWordList(b.bannedWords);
+    if (b.signupsClosed !== undefined) siteSettings.signupsClosed = Boolean(b.signupsClosed);
+    saveSiteSettings();
+    console.log(`Admin ${admin.name}: site settings changed`);
+    return sendJson(res, 200, adminState());
+  }
+
+  const um = p.match(/^\/api\/admin\/users\/(\d+)(\/view)?$/);
+  const target = um && store.get(um[1]);
+  if (um && !target) throw new HttpError(404, 'User not found');
+
+  if (um?.[2] && m === 'POST') {
+    console.log(`Admin ${admin.name}: viewing as ${target.name}`);
+    res.setHeader('Set-Cookie', cookie('as', target.id, 86400));
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (um && !um[2] && m === 'PATCH') {
+    const b = await readJson(req);
+    if (b.banned !== undefined) {
+      if (target.id === admin.id) throw new HttpError(400, "You can't ban yourself");
+      target.banned = Boolean(b.banned);
+      if (target.banned) closeOverlays(target);
+      store.save(target);
+      ulog(target, target.banned ? 'Account banned by admin' : 'Ban lifted by admin');
+      console.log(`Admin ${admin.name}: ${target.banned ? 'banned' : 'unbanned'} ${target.name} (${target.id})`);
+    }
+    return sendJson(res, 200, adminState());
+  }
+
+  if (um && !um[2] && m === 'DELETE') {
+    if (target.id === admin.id) throw new HttpError(400, 'Delete your own account from your dashboard');
+    await deleteAccount(target);
+    console.log(`Admin ${admin.name}: deleted ${target.name} (${target.id})`);
+    return sendJson(res, 200, adminState());
+  }
+
+  if (p === '/api/admin/view' && m === 'DELETE') {
+    res.setHeader('Set-Cookie', cookie('as', '', 0));
     return sendJson(res, 200, { ok: true });
   }
 
@@ -576,7 +684,7 @@ const server = http.createServer(async (req, res) => {
 
     let m;
     if ((m = p.match(/^\/overlay\/([\w-]+)$/))) {
-      if (!store.getByOverlayKey(m[1])) {
+      if (!overlayUser(m[1])) {
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
         return res.end('This OBS link is not valid. Copy the current link from the dashboard.');
       }
@@ -584,7 +692,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if ((m = p.match(/^\/events\/([\w-]+)$/))) {
-      const user = store.getByOverlayKey(m[1]);
+      const user = overlayUser(m[1]);
       if (!user) {
         res.writeHead(404);
         return res.end();
@@ -601,7 +709,7 @@ const server = http.createServer(async (req, res) => {
       // Proxies Google Translate's TTS so OBS gets same-origin audio. shortcut: unofficial endpoint; swap for a paid TTS API if Google blocks it.
       const text = url.searchParams.get('text') || '';
       const lang = url.searchParams.get('lang');
-      if (!store.getByOverlayKey(m[1]) || !text || text.length > TTS_MAX || !TTS_LANGS.includes(lang)) throw new HttpError(400, 'Invalid request');
+      if (!overlayUser(m[1]) || !text || text.length > TTS_MAX || !TTS_LANGS.includes(lang)) throw new HttpError(400, 'Invalid request');
       const r = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${lang}&q=${encodeURIComponent(text)}`, {
         headers: { 'User-Agent': 'Mozilla/5.0' },
         signal: AbortSignal.timeout(10000),
@@ -613,7 +721,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if ((m = p.match(/^\/media\/([\w-]+)\/([^/]+)$/))) {
-      const user = store.getByOverlayKey(m[1]);
+      const user = overlayUser(m[1]);
       const file = path.basename(decodeURIComponent(m[2]));
       const type = AUDIO_TYPES[path.extname(file).toLowerCase()];
       if (!user || !type) {
@@ -640,7 +748,13 @@ const server = http.createServer(async (req, res) => {
       try {
         const tokens = await kick.exchangeCode(code, pending.verifier);
         const me = await kick.getMe(tokens);
-        const user = store.upsert(me.id, { name: me.name, avatar: me.avatar, tokens });
+        const existing = store.get(me.id);
+        console.log(`Login: ${me.name} (id ${me.id})`);
+        if (existing?.banned) return redirect(res, '/?err=' + encodeURIComponent('This account is banned'));
+        if (!existing && siteSettings.signupsClosed && !ADMIN_IDS.has(String(me.id))) {
+          return redirect(res, '/?err=' + encodeURIComponent('New sign-ups are closed right now'));
+        }
+        const user = store.upsert(me.id, { name: me.name, avatar: me.avatar, tokens, lastLogin: Date.now() });
         try {
           await kick.ensureSubscription(user);
         } catch (e) {
@@ -656,14 +770,32 @@ const server = http.createServer(async (req, res) => {
 
     if (p === '/auth/logout' && req.method === 'POST') {
       if (!sameOrigin(req)) throw new HttpError(403, 'Forbidden');
-      return redirect(res, '/', { 'Set-Cookie': cookie('sid', '', 0) });
+      return redirect(res, '/', { 'Set-Cookie': [cookie('sid', '', 0), cookie('as', '', 0)] });
     }
 
     if (p.startsWith('/api/')) {
-      const user = sessionUser(req);
-      if (!user) throw new HttpError(401, 'You need to log in');
+      const me = sessionUser(req);
+      if (!me) throw new HttpError(401, 'You need to log in');
       if (req.method !== 'GET' && !sameOrigin(req)) throw new HttpError(403, 'Forbidden');
-      return await handleApi(req, res, user, p);
+      const admin = isAdmin(me) ? me : null;
+      if (p === '/api/admin' || p.startsWith('/api/admin/')) {
+        if (!admin) throw new HttpError(404, 'Not found');
+        return await handleAdmin(req, res, admin, p);
+      }
+      // An admin with the "as" cookie works in that streamer's dashboard instead of their own.
+      const as = admin && readCookies(req).as;
+      const user = (as && as !== admin.id && store.get(as)) || me;
+      const viewing = user !== me;
+      if (viewing && req.method !== 'GET') console.log(`Admin ${admin.name} as ${user.name}: ${req.method} ${p}`);
+      if (p === '/api/me' && req.method === 'GET') {
+        return sendJson(res, 200, { ...meState(user), admin: Boolean(admin), viewingAs: viewing ? { name: user.name, banned: Boolean(user.banned) } : null });
+      }
+      return await handleApi(req, res, user, p, viewing ? admin : null);
+    }
+
+    if (p === '/admin') {
+      if (!isAdmin(sessionUser(req))) throw new HttpError(404, 'Not found');
+      return sendFile(res, path.join(PUBLIC_DIR, 'admin.html'), STATIC_TYPES['.html']);
     }
 
     if (p === '/healthz') return sendJson(res, 200, { ok: true, users: store.count() });
@@ -684,7 +816,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       const file = p === '/' ? 'index.html' : path.basename(p);
       const type = STATIC_TYPES[path.extname(file)];
-      if (type && file !== 'overlay.html') return sendFile(res, path.join(PUBLIC_DIR, file), type);
+      if (type && file !== 'overlay.html' && file !== 'admin.html') return sendFile(res, path.join(PUBLIC_DIR, file), type);
     }
 
     res.writeHead(404);
