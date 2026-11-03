@@ -54,6 +54,7 @@
   </div>
   <div class="list" id="list"></div>
   <a class="made" href="/" id="made">Make your own sound list with AudioBounty</a>
+  <nav class="legal-links" style="font-size:.8125rem"><a href="/legal#privacy" id="lPrivacy">Gizlilik</a><a href="/legal#cookies" id="lCookies">Çerezler</a></nav>
 </main>
 <script id="data" type="application/json">%DATA%</script>
 <script>
@@ -66,6 +67,12 @@
     document.getElementById('lead').textContent = 'Kanal puanlarıyla yayında çalabileceğin sesler.';
     document.getElementById('watch').textContent = "Kick'te izle";
     document.getElementById('made').textContent = 'AudioBounty ile kendi ses listeni oluştur';
+  }
+  if (!tr) {
+    document.getElementById('lPrivacy').textContent = 'Privacy';
+    document.getElementById('lPrivacy').href = '/legal#privacy-en';
+    document.getElementById('lCookies').textContent = 'Cookies';
+    document.getElementById('lCookies').href = '/legal#cookies-en';
   }
   if (!data.avatar) document.getElementById('avatar').hidden = true;
 

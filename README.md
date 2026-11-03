@@ -102,6 +102,13 @@ Off by default. When turned on in Settings, `/c/<kick name>` lists the streamer'
 - Long reward lists show the first 6 with **Show all**.
 - Respects the system's reduced motion, reduced transparency and increased contrast settings.
 
+### Terms, privacy and cookies
+
+- `/legal` has the Terms of Service, the Privacy Policy (also the KVKK disclosure notice) and the Cookie Policy, in Turkish and English. Your name, email and address come from `LEGAL_NAME`, `LEGAL_EMAIL` and `LEGAL_ADDRESS`. Edit `public/legal.html` to fit your setup and have a lawyer review it; it is a template, not legal advice.
+- The login button says that logging in with Kick accepts the terms. The server records the version and time of acceptance per streamer. The version is a hash of the rendered page, so after you edit the page (or the contact details) every streamer sees a banner asking them to accept the new version.
+- Access logs (Turkish Law No. 5651): page loads, logins and logouts, and dashboard changes are written to `DATA_DIR/access-logs/<YYYY-MM>.log` with time, IP (from `CF-Connecting-IP` or `X-Forwarded-For` behind a proxy), port, method, path without the query, status and Kick user id. Files older than 12 months are deleted automatically. Polling, OBS, sound and static requests are not logged.
+- A cookie banner offers **Reject**, **Only necessary** and **Accept all** with equal weight. There are no analytics or advertising cookies; "Accept all" only adds remembering language and theme in the browser. Logging in needs at least "Only necessary", and the server enforces it.
+
 ### Admin panel
 
 Set `ADMIN_KICK_IDS` to your Kick user id (comma-separated for more than one admin). Admins get an **Admin** link in the dashboard header that opens `/admin`, where they can:
@@ -279,6 +286,7 @@ All settings are environment variables, read from `.env`.
 | `SESSION_SECRET` | Cookie signing secret; generated and stored in the data directory if empty |
 | `OVERLAY_SECRET` | Secret OBS links are derived from; generated and stored in the data directory if empty. Changing it changes every OBS link |
 | `ADMIN_KICK_IDS` | Kick user ids that can open the admin panel, comma-separated |
+| `LEGAL_NAME`, `LEGAL_EMAIL`, `LEGAL_ADDRESS` | You, as the data controller: shown in the terms, privacy notice and cookie policy at `/legal` |
 
 Everything a streamer sets in the dashboard (rewards, volumes, text-to-speech, banned words, favorites, mute) is stored per streamer in `DATA_DIR/users/<id>.json`. Site-wide admin settings are in `DATA_DIR/settings.json`. Language and theme are stored in the browser.
 

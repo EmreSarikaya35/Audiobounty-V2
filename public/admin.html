@@ -134,6 +134,7 @@
     'No streamers found': 'Yayıncı bulunamadı',
     'Theme': 'Tema',
     'System': 'Sistem',
+    'Terms not accepted': 'Koşullar onaylanmadı',
     'Kick sends a webhook for every redemption. If none arrive while streamers are live, the Kick app settings or the public URL are wrong.': "Kick her ödül kullanımında bir webhook gönderir. Yayıncılar yayındayken hiç gelmiyorsa Kick uygulama ayarları ya da site adresi yanlıştır.",
     'Recent errors': 'Son hatalar',
     'No errors since the server started.': 'Sunucu başladığından beri hata yok.',
@@ -242,6 +243,7 @@
             ${u.muted ? `<span class="tag amber">${t('muted')}</span>` : ''}
             ${u.overlays ? `<span class="tag green">${t('OBS on')}</span>` : ''}
             ${u.connected ? '' : `<span class="tag amber">${t('Kick not connected')}</span>`}
+            ${u.legalAt ? '' : `<span class="tag amber">${t('Terms not accepted')}</span>`}
           </div>
           <div class="meta">${esc(t(`${u.alerts} rewards · ${size(u.disk)} · ${u.redemptions} redemptions · last ${when(u.lastRedemption)}`))}</div>
           <div class="meta">${esc(t(`Joined ${day(u.createdAt)} · last login ${when(u.lastLogin)}`))}</div>
@@ -305,7 +307,7 @@
   }
   document.querySelector('.lang-btn').addEventListener('click', () => {
     lang = lang === 'tr' ? 'en' : 'tr';
-    try { localStorage.setItem('lang', lang); } catch {}
+    if (/(?:^|; )consent=all/.test(document.cookie)) try { localStorage.setItem('lang', lang); } catch {}
     applyLang();
   });
 
@@ -329,7 +331,7 @@
   });
   themeWrap.querySelectorAll('[data-pref]').forEach((b) => b.addEventListener('click', () => {
     themePref = b.dataset.pref;
-    try { localStorage.setItem('theme', themePref); } catch {}
+    if (/(?:^|; )consent=all/.test(document.cookie)) try { localStorage.setItem('theme', themePref); } catch {}
     syncTheme();
   }));
   document.addEventListener('click', () => themeWrap.classList.remove('open'));

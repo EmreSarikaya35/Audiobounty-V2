@@ -243,6 +243,26 @@ ul.log time { color: var(--muted); font-variant-numeric: tabular-nums; flex: non
 .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem 1.25rem; align-items: end; }
 .settings .wide { grid-column: 1 / -1; }
 footer { text-align: center; color: var(--muted); font-size: .8125rem; margin-top: 2rem; }
+.legal-links { display: flex; justify-content: center; flex-wrap: wrap; gap: .25rem 1rem; margin-top: .5rem; }
+.legal-links a { color: var(--muted); text-decoration: none; }
+.legal-links a:hover { color: var(--text); text-decoration: underline; }
+.legal-note { max-width: 26rem; margin: 1rem auto 0 !important; font-size: .8125rem !important; line-height: 1.45; }
+.legal-note a { color: inherit; text-decoration: underline; }
+
+/* Cookie choice: a floating material card; all three choices weigh the same */
+.consent {
+  position: fixed; z-index: 30; left: 50%; bottom: max(1rem, env(safe-area-inset-bottom)); translate: -50% 0; width: min(36rem, calc(100% - 2rem));
+  padding: 1.1rem 1.2rem 1rem; border-radius: 20px; color: var(--text);
+  background: var(--material-strong); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%);
+  border: 1px solid var(--material-edge); box-shadow: var(--shadow-lg);
+}
+.consent h2 { font-size: 1.0625rem; letter-spacing: -.01em; margin-bottom: .3rem; }
+.consent p { margin: 0 0 .4rem; color: var(--muted); font-size: .875rem; line-height: 1.45; }
+.consent .consent-need { color: var(--warn); font-weight: 600; }
+.consent > a { font-size: .875rem; }
+.consent-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin-top: .85rem; }
+.consent-actions button { white-space: normal; text-align: center; }
+@media (max-width: 480px) { .consent-actions { grid-template-columns: 1fr; } }
 
 /* Toast: a material that slides up and leaves the way it came */
 #toast {

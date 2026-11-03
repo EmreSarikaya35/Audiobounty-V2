@@ -26,7 +26,23 @@ const isAdmin = (user) => Boolean(user && ADMIN_IDS.has(String(user.id)));
 // It's read once at startup, so restart the server after editing public/index.html.
 const INDEX_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8').replaceAll('%PUBLIC_URL%', PUBLIC_URL);
 const CHANNEL_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'channel.html'), 'utf8');
+
+// Terms, privacy notice and cookie policy. The operator's details come from the environment; the version is
+// a hash of the rendered page, so editing it (or the details) asks every streamer to accept it again.
+const LEGAL_HOST = new URL(PUBLIC_URL).host;
+const LEGAL_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'legal.html'), 'utf8').replace(/%(PUBLIC_URL|OPERATOR|EMAIL|ADDRESS)%/g, (_, k) => escHtml({
+  PUBLIC_URL,
+  OPERATOR: process.env.LEGAL_NAME || LEGAL_HOST,
+  EMAIL: process.env.LEGAL_EMAIL || '[LEGAL_EMAIL not set]',
+  ADDRESS: process.env.LEGAL_ADDRESS || '-',
+}[k]));
+const LEGAL_VERSION = crypto.createHash('sha256').update(LEGAL_HTML).digest('hex').slice(0, 12);
+if (!process.env.LEGAL_NAME || !process.env.LEGAL_EMAIL) console.warn('LEGAL_NAME and LEGAL_EMAIL are not set; the terms and privacy pages have no contact details (see .env.example)');
 const ROBOTS_TXT = ['User-agent: *', 'Allow: /', ...['/api/', '/auth/', '/overlay/', '/events/', '/media/', '/tts/', '/p/'].map((d) => `Disallow: ${d}`), '', `Sitemap: ${PUBLIC_URL}/sitemap.xml`, ''].join('\n');
+
+function escHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 
 const AUDIO_TYPES = {
   '.mp3': 'audio/mpeg',
@@ -91,6 +107,35 @@ function persistentSecret(file) {
   fs.writeFileSync(file, s, { mode: 0o600 });
   return s;
 }
+
+// Access log (Law No. 5651): who reached the site from which IP and when, one file per month, kept for 1 year.
+// Polling, OBS, sound and static requests are left out; they would fill the disk without saying anything new.
+const ACCESS_LOG_DIR = path.join(DATA_DIR, 'access-logs');
+const ACCESS_LOG_MONTHS = 12;
+fs.mkdirSync(ACCESS_LOG_DIR, { recursive: true });
+const NOT_LOGGED = /^\/(events|media|tts|p)\/|^\/(webhook|healthz|robots\.txt|sitemap\.xml)$|\.(css|js|svg|png|ico)$/;
+
+function clientIp(req) {
+  // Behind Cloudflare or a reverse proxy the visitor's address is in these headers.
+  const fwd = String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  return fwd || req.socket.remoteAddress || '';
+}
+
+function logAccess(req, res, p) {
+  if (NOT_LOGGED.test(p) || (p === '/api/me' && req.method === 'GET')) return;
+  const user = res.logUser || sessionUser(req)?.id || '-';
+  const line = [new Date().toISOString(), clientIp(req), req.socket.remotePort, req.method, p, res.statusCode, user].join('\t') + '\n';
+  fs.appendFile(path.join(ACCESS_LOG_DIR, `${line.slice(0, 7)}.log`), line, (e) => e && console.error(`Access log: ${e.message}`));
+}
+
+function pruneAccessLogs() {
+  const d = new Date();
+  d.setUTCMonth(d.getUTCMonth() - ACCESS_LOG_MONTHS);
+  const oldest = d.toISOString().slice(0, 7);
+  for (const f of fs.readdirSync(ACCESS_LOG_DIR)) if (/^\d{4}-\d{2}\.log$/.test(f) && f.slice(0, 7) < oldest) fs.rmSync(path.join(ACCESS_LOG_DIR, f), { force: true });
+}
+pruneAccessLogs();
+setInterval(pruneAccessLogs, 864e5);
 
 // Shown on the admin page: is Kick still sending webhooks, and what failed lately.
 const health = { startedAt: Date.now(), webhooks: 0, rejected: 0, lastWebhookAt: null, errors: [] };
@@ -553,6 +598,7 @@ function meState(user) {
     queue: queueView(user),
     stats: statsView(user),
     publicPage: Boolean(user.publicPage),
+    legalOk: user.legal?.version === LEGAL_VERSION,
     publicUrl: `${PUBLIC_URL}/c/${encodeURIComponent(user.name || '')}`,
     limits: { maxSoundMb: MAX_SOUND_MB, maxAlerts: MAX_ALERTS, maxPool: MAX_POOL },
   };
@@ -747,6 +793,13 @@ async function handleApi(req, res, user, p, admin) {
     return sendJson(res, 200, meState(user));
   }
 
+  if (p === '/api/legal/accept' && m === 'POST') {
+    if (admin) throw new HttpError(403, 'Only the streamer can accept the terms');
+    user.legal = { version: LEGAL_VERSION, at: Date.now() };
+    store.save(user);
+    return sendJson(res, 200, meState(user));
+  }
+
   if (p === '/api/overlay/remove' && m === 'POST') {
     const b = await readJson(req);
     sendToOverlays(user, { type: 'remove', qid: String(b.qid || '') });
@@ -813,7 +866,6 @@ function dirSize(dir) {
   return n;
 }
 
-const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 // Names can change hands on Kick; if two stored accounts share one, the most recent login wins.
 function publicOwner(name) {
@@ -855,6 +907,7 @@ function adminState() {
       banned: Boolean(u.banned),
       connected: Boolean(u.tokens && u.subscription),
       admin: isAdmin(u),
+      legalAt: u.legal?.version === LEGAL_VERSION ? u.legal.at : null,
     }))
     .sort((a, b) => (b.lastRedemption || 0) - (a.lastRedemption || 0) || String(b.createdAt).localeCompare(String(a.createdAt)));
   const system = {
@@ -921,6 +974,7 @@ async function handleAdmin(req, res, admin, p) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const p = url.pathname;
+  res.on('finish', () => logAccess(req, res, p));
 
   try {
     if (p === '/webhook' && req.method === 'POST') {
@@ -1028,6 +1082,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (p === '/auth/login') {
+      // Logging in sets the session cookie, so it waits for the visitor to allow necessary cookies.
+      if (!['all', 'necessary'].includes(readCookies(req).consent)) return redirect(res, '/?consent=1');
       const state = crypto.randomBytes(16).toString('base64url');
       const verifier = crypto.randomBytes(32).toString('base64url');
       const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
@@ -1054,7 +1110,10 @@ const server = http.createServer(async (req, res) => {
         if (!existing && siteSettings.signupsClosed && !ADMIN_IDS.has(String(me.id))) {
           return redirect(res, '/?err=' + encodeURIComponent('New sign-ups are closed right now'), { 'Set-Cookie': clear });
         }
-        const user = store.upsert(me.id, { name: me.name, avatar: me.avatar, tokens, lastLogin: Date.now() });
+        // The login button says that logging in accepts the terms, so a login is the acceptance we record.
+        const legal = existing?.legal?.version === LEGAL_VERSION ? existing.legal : { version: LEGAL_VERSION, at: Date.now() };
+        const user = store.upsert(me.id, { name: me.name, avatar: me.avatar, tokens, lastLogin: Date.now(), legal });
+        res.logUser = user.id; // the session cookie is only set by this response
         try {
           await kick.ensureSubscription(user);
         } catch (e) {
@@ -1098,6 +1157,11 @@ const server = http.createServer(async (req, res) => {
       return sendFile(res, path.join(PUBLIC_DIR, 'admin.html'), STATIC_TYPES['.html']);
     }
 
+    if (p === '/legal') {
+      res.writeHead(200, { 'Content-Type': STATIC_TYPES['.html'], 'Cache-Control': 'no-cache' });
+      return res.end(LEGAL_HTML);
+    }
+
     if (p === '/healthz') return sendJson(res, 200, { ok: true, users: store.count() });
 
     if (p === '/' || p === '/index.html') {
@@ -1111,13 +1175,13 @@ const server = http.createServer(async (req, res) => {
     if (p === '/sitemap.xml') {
       res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8' });
       const pages = store.all().filter((u) => u.publicPage && !u.banned && u.name).map((u) => `<url><loc>${escHtml(`${PUBLIC_URL}/c/${encodeURIComponent(u.name)}`)}</loc></url>`);
-      return res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${PUBLIC_URL}/</loc></url>${pages.join('')}</urlset>\n`);
+      return res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${PUBLIC_URL}/</loc></url><url><loc>${PUBLIC_URL}/legal</loc></url>${pages.join('')}</urlset>\n`);
     }
 
     if (req.method === 'GET') {
       const file = p === '/' ? 'index.html' : path.basename(p);
       const type = STATIC_TYPES[path.extname(file)];
-      if (type && !['overlay.html', 'admin.html', 'channel.html'].includes(file)) return sendFile(res, path.join(PUBLIC_DIR, file), type);
+      if (type && !['overlay.html', 'admin.html', 'channel.html', 'legal.html'].includes(file)) return sendFile(res, path.join(PUBLIC_DIR, file), type);
     }
 
     res.writeHead(404);

@@ -66,6 +66,7 @@
       <h1 data-i18n>Let your viewers play sounds<br>on stream with channel points</h1>
       <p data-i18n>Create a reward, upload a sound, paste the link into OBS. Nothing to download, nothing to configure.</p>
       <a class="btn primary" href="/auth/login" data-i18n>Log in with Kick</a>
+      <p class="legal-note" data-i18n>By logging in with Kick you accept the <a href="/legal#terms-en">Terms of Service</a> and confirm you have read the <a href="/legal#privacy-en">Privacy Policy</a>.</p>
     </div>
     <div class="how">
       <div><b><i>1</i><span data-i18n>Log in</span></b><span data-i18n>Connect your Kick account. Your password never reaches us.</span></div>
@@ -96,6 +97,11 @@
     <div id="bannerViewing" class="banner warn" hidden>
       <span id="viewingText"></span>
       <button class="primary small" id="stopViewingBtn" data-i18n>Back to admin</button>
+    </div>
+    <div id="bannerLegal" class="banner warn" hidden>
+      <span data-i18n>We updated the Terms of Service and Privacy Policy. Read them and accept to keep using AudioBounty.</span>
+      <a class="btn small" href="/legal#terms-en" target="_blank" rel="noopener" data-doc="terms" data-i18n>Read</a>
+      <button class="primary small" type="button" id="legalAccept" data-i18n>Accept</button>
     </div>
     <div id="bannerRelogin" class="banner err" hidden>
       <span data-i18n>Your Kick connection has expired. Log in again to keep your sounds working.</span>
@@ -162,9 +168,30 @@
     </div>
   </div>
 
-  <footer data-i18n>Designed and built by Emre Sarıkaya.</footer>
+  <footer>
+    <span data-i18n>Designed and built by Emre Sarıkaya.</span>
+    <nav class="legal-links" aria-label="Legal">
+      <a href="/legal#terms-en" data-doc="terms" data-i18n>Terms</a>
+      <a href="/legal#privacy-en" data-doc="privacy" data-i18n>Privacy</a>
+      <a href="/legal#cookies-en" data-doc="cookies" data-i18n>Cookies</a>
+      <a href="#" data-consent-open data-i18n>Cookie preferences</a>
+    </nav>
+  </footer>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
+
+<!-- Cookie choice: three equal buttons, so refusing is as easy as accepting -->
+<section class="consent" id="consent" aria-labelledby="consentTitle" hidden>
+  <h2 id="consentTitle" data-i18n>Cookies</h2>
+  <p data-i18n>We only use the cookies needed to keep you logged in, plus optional ones that remember your language and theme. No ads, no tracking.</p>
+  <p class="consent-need" id="consentNeed" hidden data-i18n>Logging in needs the necessary cookies. Choose "Only necessary" or "Accept all" to continue.</p>
+  <a href="/legal#cookies-en" data-doc="cookies" data-i18n>Cookie policy</a>
+  <div class="consent-actions">
+    <button type="button" data-consent="none" data-i18n>Reject</button>
+    <button type="button" data-consent="necessary" data-i18n>Only necessary</button>
+    <button type="button" data-consent="all" data-i18n>Accept all</button>
+  </div>
+</section>
 
 <!-- Sheets: a centered panel on wide screens, a draggable bottom sheet on phones -->
 <dialog class="sheet" id="addSheet" aria-labelledby="addTitle">
@@ -466,6 +493,23 @@
 
   // UI text is written in English; TR maps each English string (and server message) to Turkish.
   const TR = {
+    'By logging in with Kick you accept the <a href="/legal#terms-en">Terms of Service</a> and confirm you have read the <a href="/legal#privacy-en">Privacy Policy</a>.': 'Kick ile giriş yaparak <a href="/legal#terms">Kullanım Koşulları</a>\'nı kabul etmiş ve <a href="/legal#privacy">Gizlilik Politikası ve KVKK Aydınlatma Metni</a>\'ni okuduğunu beyan etmiş olursun.',
+    "We updated the Terms of Service and Privacy Policy. Read them and accept to keep using AudioBounty.": "Kullanım Koşulları ve Gizlilik Politikası güncellendi. AudioBounty'yi kullanmaya devam etmek için oku ve onayla.",
+    "Read": "Oku",
+    "Accept": "Onayla",
+    "Thanks, accepted": "Teşekkürler, onaylandı",
+    "Only the streamer can accept the terms": "Koşulları yalnızca yayıncının kendisi onaylayabilir",
+    "Terms": "Kullanım Koşulları",
+    "Privacy": "Gizlilik ve KVKK",
+    "Cookies": "Çerezler",
+    "Cookie preferences": "Çerez tercihleri",
+    "Cookie policy": "Çerez Politikası",
+    "We only use the cookies needed to keep you logged in, plus optional ones that remember your language and theme. No ads, no tracking.": "Yalnızca oturumunu açık tutmak için gereken çerezleri ve isteğe bağlı olarak dil ve tema tercihini hatırlayan kayıtları kullanıyoruz. Reklam ve takip yok.",
+    'Logging in needs the necessary cookies. Choose "Only necessary" or "Accept all" to continue.': 'Giriş yapmak için gerekli çerezler şart. Devam etmek için "Sadece gerekli" ya da "Tümünü kabul et"i seç.',
+    "Reject": "Reddet",
+    "Only necessary": "Sadece gerekli",
+    "Accept all": "Tümünü kabul et",
+    "Cookie choice saved": "Çerez tercihin kaydedildi",
     "Statistics": "İstatistikler",
     "Sounds": "Sesler",
     "+ Add file": "+ Dosya ekle",
@@ -740,6 +784,11 @@
     [/^Delete "(.+)"\? The reward will also be removed from your Kick channel\.$/, (m) => `"${m[1]}" silinsin mi? Ödül Kick kanalından da kaldırılacak.`],
     [/^Remove the sound from "(.+)"\? The reward stays on Kick\.$/, (m) => `"${m[1]}" ödülünün sesi kaldırılsın mı? Ödül Kick'te kalır.`],
   ];
+  // Cookie consent: "all" also remembers language and theme; "necessary" allows logging in; "none" stores nothing else.
+  const consentValue = () => (document.cookie.match(/(?:^|; )consent=(\w+)/) || [])[1];
+  function savePref(key, value) {
+    if (consentValue() === 'all') try { localStorage.setItem(key, value); } catch {}
+  }
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   let lang = 'en';
   try { lang = localStorage.getItem('lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en'); } catch {}
@@ -760,13 +809,14 @@
     document.querySelectorAll('[data-i18n-label]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nLabel)); });
     document.querySelectorAll('.file-pick:not(.has) .btn').forEach((el) => { el.textContent = t('Choose file…'); });
     document.querySelectorAll('.lang-btn').forEach((el) => { el.textContent = lang === 'tr' ? 'English' : 'Türkçe'; });
+    document.querySelectorAll('a[data-doc]').forEach((el) => { el.href = `/legal#${el.dataset.doc}${lang === 'en' ? '-en' : ''}`; });
     syncTheme();
     $('newSwatches').innerHTML = swatchesHtml('newColor', $('newSwatches').firstChild ? swatchValue($('newSwatches')) : DEFAULT_COLOR);
     if (me) render(me, true);
   }
   document.querySelectorAll('.lang-btn').forEach((el) => el.addEventListener('click', () => {
     lang = lang === 'tr' ? 'en' : 'tr';
-    try { localStorage.setItem('lang', lang); } catch {}
+    savePref('lang', lang);
     applyLang();
   }));
 
@@ -879,7 +929,7 @@
 
   function setTheme(pref, from) {
     themePref = pref;
-    try { localStorage.setItem('theme', pref); } catch {}
+    savePref('theme', pref);
     syncTheme();
     const next = effectiveTheme();
     if (document.documentElement.dataset.theme === next) return;
@@ -1160,6 +1210,7 @@
     if (session.viewingAs) $('viewingText').textContent = t(`You are viewing ${session.viewingAs.name}'s dashboard as admin${session.viewingAs.banned ? ' (banned)' : ''}. Changes apply to their account.`);
     $('userName').textContent = state.user.name;
     if (state.user.avatar) $('avatar').src = state.user.avatar; else $('avatar').removeAttribute('src');
+    reveal($('bannerLegal'), !state.legalOk && !session.viewingAs);
     reveal($('bannerRelogin'), state.needsRelogin);
     reveal($('bannerRepair'), !state.needsRelogin && !state.subscribed);
 
@@ -1824,6 +1875,41 @@
     });
   });
 
+  $('legalAccept').addEventListener('click', (e) => busy(e.currentTarget, async () => {
+    render(await api('/api/legal/accept', 'POST'), false);
+    toast('Thanks, accepted');
+  }));
+
+  let loginAfterConsent = false;
+  function showConsent(needed) {
+    $('consentNeed').hidden = !needed;
+    reveal($('consent'), true);
+    $('consent').querySelector('[data-consent="necessary"]').focus({ preventScroll: true });
+  }
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-consent-open]')) { e.preventDefault(); return showConsent(false); }
+    // The server refuses to log in without consent too; this just explains it before leaving the page.
+    if (e.target.closest('a[href="/auth/login"]') && !['all', 'necessary'].includes(consentValue())) {
+      e.preventDefault();
+      loginAfterConsent = true;
+      showConsent(true);
+    }
+  });
+  $('consent').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-consent]');
+    if (!b) return;
+    const v = b.dataset.consent;
+    document.cookie = `consent=${v}; Path=/; Max-Age=15552000; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
+    if (v === 'all') { savePref('lang', lang); savePref('theme', themePref); }
+    else try { localStorage.removeItem('lang'); localStorage.removeItem('theme'); } catch {}
+    $('consent').hidden = true;
+    if (v === 'none' && me) { // a session cookie is not allowed any more
+      await fetch('/auth/logout', { method: 'POST' });
+      location.href = '/';
+    } else if (loginAfterConsent && v !== 'none') location.href = '/auth/login';
+    else toast('Cookie choice saved');
+  });
+
   $('stopViewingBtn').addEventListener('click', async () => {
     await fetch('/api/admin/view', { method: 'DELETE' });
     location.href = '/admin';
@@ -1837,6 +1923,8 @@
   applyLang();
   const q = new URLSearchParams(location.search);
   if (q.get('err')) toast(q.get('err'), true);
+  if (q.has('consent')) { loginAfterConsent = true; showConsent(true); }
+  else if (q.has('cookies') || !consentValue()) showConsent(false);
   if (q.size) history.replaceState(null, '', '/');
 
   // Faster while the queue is open, since it changes with every sound.
