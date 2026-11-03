@@ -42,7 +42,7 @@ Viewer redeems "sound1" on Kick
 - **Add**: name, cost, color on Kick (8 presets or a custom color) and a sound. Turn on **Read the viewer's message aloud** to make it a text-to-speech reward; the sound is then optional.
 - **Attach** a sound to a reward that already exists on Kick.
 - Per reward: **Test** plays it in OBS, **▶** plays it in the browser, and the **•••** menu changes the sound (file or myinstants), turns text-to-speech on or off, edits the name, cost and color, pauses or resumes it, or deletes it.
-- Rewards created in the Kick dashboard keep their name, cost and color on Kick; only their sound is managed here.
+- Rewards created in the Kick dashboard keep their name, cost and color on Kick; only their sound is managed here. They must have **Skip reward requests queue** turned on in Kick, so viewers' redemptions play right away and nothing is read before you approve it.
 - A volume slider per reward, on top of the master volume.
 
 ### myinstants.com picker
@@ -320,6 +320,11 @@ Set the `https://….trycloudflare.com` address as `PUBLIC_URL`, update the Redi
 - The server only downloads sounds from `https://www.myinstants.com/media/sounds/`, without following redirects, so the picker can't be used to make it fetch other addresses.
 - Reward colors must be `#rrggbb`; anything else is ignored.
 - The admin panel and its API answer 404 to anyone not listed in `ADMIN_KICK_IDS`. Admin actions are written to the server log.
+- The OAuth state is bound to the browser that started the login with a short-lived cookie, so a login link can't be handed to someone else.
+- Webhooks older than 10 minutes are ignored (replays), and the Kick public key is refetched at most once a minute.
+- Each OBS link accepts at most 5 connections; a connection that stops reading is dropped instead of buffering in memory.
+- Deleting an account stops if Kick can't remove its rewards (the dashboard offers to delete anyway). Requests still running when an account is deleted can't write it back.
+- Sound files no reward uses are removed on startup and after every sound change.
 
 ## Project structure
 

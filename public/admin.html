@@ -115,6 +115,8 @@
     "You can't ban yourself": 'Kendini yasaklayamazsın',
     'Delete your own account from your dashboard': 'Kendi hesabını kendi panelinden sil',
     'User not found': 'Kullanıcı bulunamadı',
+    'Could not remove your rewards from Kick': "Ödüller Kick'ten kaldırılamadı",
+    'Could not remove the rewards from Kick (the Kick connection may have expired). Delete anyway? The rewards will stay on Kick and must be removed there.': "Ödüller Kick'ten kaldırılamadı (Kick bağlantısının süresi dolmuş olabilir). Yine de silinsin mi? Ödüller Kick'te kalır ve oradan kaldırılması gerekir.",
   };
   const TR_PATTERNS = [
     [/^(\d+) rewards · (\d+) redemptions · last (.+)$/, (m) => `${m[1]} ödül · ${m[2]} kullanım · son ${t(m[3])}`],
@@ -220,7 +222,14 @@
     }
     if (btn.dataset.act === 'delete') {
       if (!confirm(t(`Delete ${u.name}? Their sounds, settings and the Kick rewards created here will be removed. This cannot be undone.`))) return;
-      return busy(btn, async () => render(await api(`/api/admin/users/${u.id}`, 'DELETE')));
+      return busy(btn, async () => {
+        try {
+          render(await api(`/api/admin/users/${u.id}`, 'DELETE'));
+        } catch (err) {
+          if (err.message !== 'Could not remove your rewards from Kick' || !confirm(t('Could not remove the rewards from Kick (the Kick connection may have expired). Delete anyway? The rewards will stay on Kick and must be removed there.'))) throw err;
+          render(await api(`/api/admin/users/${u.id}?force=1`, 'DELETE'));
+        }
+      });
     }
   });
 

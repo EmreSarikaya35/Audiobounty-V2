@@ -104,20 +104,34 @@ function overlayCount(user) {
   return overlays.get(user.id)?.size || 0;
 }
 
+const MAX_OVERLAYS = 5; // OBS needs one or two; the oldest is dropped when a new one connects
+const MAX_PENDING_BYTES = 64 * 1024;
+
+// A subscriber that stops reading would otherwise queue every message in memory forever.
+function writeOverlay(set, res, data) {
+  if (res.writableLength > MAX_PENDING_BYTES) {
+    set.delete(res);
+    return res.destroy();
+  }
+  res.write(data);
+}
+
 function sendToOverlays(user, payload) {
   const data = `data: ${JSON.stringify(payload)}\n\n`;
-  for (const res of overlays.get(user.id) || []) res.write(data);
+  const set = overlays.get(user.id);
+  for (const res of set || []) writeOverlay(set, res, data);
 }
 
 setInterval(() => {
-  for (const set of overlays.values()) for (const res of set) res.write(': ping\n\n');
+  for (const set of overlays.values()) for (const res of set) writeOverlay(set, res, ': ping\n\n');
 }, 25000);
 
+const WEBHOOK_MAX_AGE = 10 * 60 * 1000;
 const TTS_MAX = 200; // Google's TTS endpoint rejects longer text
 const TTS_LANGS = ['tr', 'en'];
 
 // Whole-word match, so "am" blocks "am" but not "tamam". An entry with spaces matches that exact phrase.
-const words = (s) => s.toLocaleLowerCase('tr').match(/[\p{L}\p{N}]+/gu) || [];
+const words = (s) => s.toLocaleLowerCase('tr').match(/[\p{L}\p{M}\p{N}]+/gu) || [];
 function hasBannedWord(user, text) {
   const padded = ` ${words(text).join(' ')} `;
   return [...(user.bannedWords || []), ...siteSettings.bannedWords].some((w) => padded.includes(` ${words(w).join(' ')} `));
@@ -178,7 +192,10 @@ function handleRedemption(evt) {
   if (user.muted) return ulog(user, `${who || 'Someone'} redeemed "${alert.title}" (muted)`);
   let text = '';
   if (alert.tts) {
-    text = String(evt.user_input || '').replace(/https?:\/\/\S+/g, '').trim().slice(0, TTS_MAX);
+    // NFC joins decomposed letters (g + ˘ -> ğ); invisible format characters would otherwise split banned words.
+    text = String(evt.user_input || '').normalize('NFC').replace(/\p{Cf}/gu, '').replace(/https?:\/\/\S+/gi, '').trim()
+      .slice(0, TTS_MAX)
+      .replace(/\p{Cs}/gu, ''); // a cut emoji half would make encodeURIComponent throw
     if (text && hasBannedWord(user, text)) {
       ulog(user, `Message from ${who || 'someone'} was not read: it has a banned word`);
       text = '';
@@ -241,9 +258,12 @@ function closeOverlays(user) {
   overlays.delete(user.id);
 }
 
-async function deleteAccount(user) {
-  await kick.unsubscribe(user).catch(() => {});
-  for (const a of user.alerts) if (a.managed && a.rewardId) await kick.deleteReward(user, a.rewardId).catch(() => {});
+// Keeps the account (and the tokens needed to retry) when Kick cleanup fails, unless forced.
+async function deleteAccount(user, force) {
+  let failed = false;
+  await kick.unsubscribe(user).catch(() => (failed = true));
+  for (const a of user.alerts) if (a.managed && a.rewardId) await kick.deleteReward(user, a.rewardId).catch(() => (failed = true));
+  if (failed && !force) throw new HttpError(409, 'Could not remove your rewards from Kick');
   closeOverlays(user);
   store.remove(user);
 }
@@ -306,7 +326,7 @@ function sendFile(res, file, type) {
       'Content-Type': type,
       'Content-Length': st.size,
       'X-Content-Type-Options': 'nosniff',
-      'Cache-Control': type.startsWith('audio/') ? 'public, max-age=31536000, immutable' : 'no-cache',
+      'Cache-Control': type.startsWith('audio/') ? 'private, max-age=31536000, immutable' : 'no-cache',
     });
     fs.createReadStream(file).pipe(res);
   });
@@ -375,7 +395,15 @@ async function fetchMyInstantsSound(url) {
 const resolveSound = (sound) => (sound?.url ? fetchMyInstantsSound(sound.url) : sound);
 
 function removeSound(user, file) {
-  if (file) fs.rmSync(path.join(store.soundDir(user), path.basename(file)), { force: true });
+  if (!file || !store.isLive(user) || user.alerts.some((a) => a.file === file)) return;
+  fs.rmSync(path.join(store.soundDir(user), path.basename(file)), { force: true });
+}
+
+// Deletes sound files that no alert points to (left behind by overlapping edits or older versions).
+function pruneSounds(user) {
+  if (!store.isLive(user)) return;
+  const used = new Set(user.alerts.map((a) => a.file));
+  for (const f of fs.readdirSync(store.soundDir(user))) if (!used.has(f)) fs.rmSync(path.join(store.soundDir(user), f), { force: true });
 }
 
 function validTitle(t) {
@@ -431,7 +459,7 @@ async function handleApi(req, res, user, p, admin) {
   if (p === '/api/rewards' && m === 'GET') {
     const rewards = await kick.listRewards(user);
     return sendJson(res, 200, {
-      rewards: rewards.map((r) => ({ id: r.id, title: r.title, cost: r.cost, enabled: r.is_enabled })),
+      rewards: rewards.map((r) => ({ id: r.id, title: r.title, cost: Number(r.cost) || 0, enabled: r.is_enabled })),
     });
   }
 
@@ -465,7 +493,9 @@ async function handleApi(req, res, user, p, admin) {
       const reward = (await kick.listRewards(user)).find((r) => r.id === b.rewardId);
       if (!reward) throw new HttpError(404, 'This reward was not found on your Kick channel');
       if (user.alerts.some((a) => a.rewardId === reward.id)) throw new HttpError(400, 'This reward already has a sound');
-      alert = { id, rewardId: reward.id, title: reward.title, cost: reward.cost, managed: false, tts };
+      // Viewers must be able to redeem at any time; an approval queue would play sounds before the streamer decides.
+      if (reward.should_redemptions_skip_request_queue === false) throw new HttpError(400, 'This reward needs approval on Kick. Turn on "Skip reward requests queue" for it in the Kick dashboard, then try again.');
+      alert = { id, rewardId: reward.id, title: String(reward.title), cost: Number(reward.cost) || 0, managed: false, tts };
     } else {
       const title = validTitle(b.title);
       const cost = validCost(b.cost);
@@ -483,7 +513,9 @@ async function handleApi(req, res, user, p, admin) {
     }
     try {
       alert.file = b.sound ? saveSound(user, id, await resolveSound(b.sound)) : null;
+      if (user.alerts.length >= MAX_ALERTS) throw new HttpError(400, `You can add at most ${MAX_ALERTS} sound rewards`);
     } catch (e) {
+      if (alert.file) removeSound(user, alert.file);
       if (alert.managed && alert.rewardId) await kick.deleteReward(user, alert.rewardId).catch(() => {});
       throw e;
     }
@@ -529,9 +561,12 @@ async function handleApi(req, res, user, p, admin) {
       }
       if (b.volume !== undefined) alert.volume = validVolume(b.volume);
       if (b.sound) {
-        const old = alert.file;
-        alert.file = saveSound(user, alert.id, await resolveSound(b.sound));
+        const sound = await resolveSound(b.sound);
+        if (!user.alerts.includes(alert)) throw new HttpError(404, 'Reward not found');
+        const old = alert.file; // read after the await, so a change made meanwhile is the one replaced
+        alert.file = saveSound(user, alert.id, sound);
         removeSound(user, old);
+        pruneSounds(user);
       }
       store.save(user);
       return sendJson(res, 200, meState(user));
@@ -539,8 +574,9 @@ async function handleApi(req, res, user, p, admin) {
 
     if (!am[2] && m === 'DELETE') {
       if (alert.managed && alert.rewardId) await kick.deleteReward(user, alert.rewardId);
-      removeSound(user, alert.file);
       user.alerts = user.alerts.filter((a) => a !== alert);
+      removeSound(user, alert.file);
+      pruneSounds(user);
       store.save(user);
       log(`Deleted "${alert.title}"`);
       return sendJson(res, 200, meState(user));
@@ -583,7 +619,7 @@ async function handleApi(req, res, user, p, admin) {
   }
 
   if (p === '/api/account' && m === 'DELETE') {
-    await deleteAccount(user);
+    await deleteAccount(user, new URL(req.url, PUBLIC_URL).searchParams.has('force'));
     res.setHeader('Set-Cookie', cookie(admin ? 'as' : 'sid', '', 0));
     return sendJson(res, 200, { ok: true });
   }
@@ -651,7 +687,7 @@ async function handleAdmin(req, res, admin, p) {
 
   if (um && !um[2] && m === 'DELETE') {
     if (target.id === admin.id) throw new HttpError(400, 'Delete your own account from your dashboard');
-    await deleteAccount(target);
+    await deleteAccount(target, new URL(req.url, PUBLIC_URL).searchParams.has('force'));
     console.log(`Admin ${admin.name}: deleted ${target.name} (${target.id})`);
     return sendJson(res, 200, adminState());
   }
@@ -677,6 +713,9 @@ const server = http.createServer(async (req, res) => {
       }
       res.writeHead(200);
       res.end();
+      // The timestamp is signed; an old message is a replay (the dedupe below is lost on restart).
+      const sentAt = Date.parse(req.headers['kick-event-message-timestamp']);
+      if (Math.abs(Date.now() - sentAt) > WEBHOOK_MAX_AGE) return;
       if (alreadySeen(`m:${req.headers['kick-event-message-id']}`)) return;
       if (req.headers['kick-event-type'] === REDEMPTION_EVENT) handleRedemption(JSON.parse(raw));
       return;
@@ -700,7 +739,13 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
       res.write('retry: 3000\n\n');
       if (!overlays.has(user.id)) overlays.set(user.id, new Set());
-      overlays.get(user.id).add(res);
+      const set = overlays.get(user.id);
+      while (set.size >= MAX_OVERLAYS) {
+        const oldest = set.values().next().value;
+        set.delete(oldest);
+        oldest.end();
+      }
+      set.add(res);
       req.on('close', () => overlays.get(user.id)?.delete(res));
       return;
     }
@@ -736,23 +781,27 @@ const server = http.createServer(async (req, res) => {
       const verifier = crypto.randomBytes(32).toString('base64url');
       const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
       pendingLogins.set(state, { verifier, at: Date.now() });
-      return redirect(res, kick.authorizeUrl(state, challenge));
+      // The callback must come back to this browser, so a login link can't be handed to someone else.
+      return redirect(res, kick.authorizeUrl(state, challenge), { 'Set-Cookie': cookie('oauth_state', state, 600) });
     }
 
     if (p === '/auth/callback') {
-      const state = url.searchParams.get('state');
-      const pending = pendingLogins.get(state);
+      const state = url.searchParams.get('state') || '';
+      const bound = readCookies(req).oauth_state || '';
+      const sameBrowser = state && bound.length === state.length && crypto.timingSafeEqual(Buffer.from(bound), Buffer.from(state));
+      const pending = sameBrowser ? pendingLogins.get(state) : null;
       pendingLogins.delete(state);
       const code = url.searchParams.get('code');
-      if (!code || !pending) return redirect(res, '/?err=' + encodeURIComponent('Login was cancelled or expired, please try again'));
+      const clear = cookie('oauth_state', '', 0);
+      if (!code || !pending) return redirect(res, '/?err=' + encodeURIComponent('Login was cancelled or expired, please try again'), { 'Set-Cookie': clear });
       try {
         const tokens = await kick.exchangeCode(code, pending.verifier);
         const me = await kick.getMe(tokens);
         const existing = store.get(me.id);
         console.log(`Login: ${me.name} (id ${me.id})`);
-        if (existing?.banned) return redirect(res, '/?err=' + encodeURIComponent('This account is banned'));
+        if (existing?.banned) return redirect(res, '/?err=' + encodeURIComponent('This account is banned'), { 'Set-Cookie': clear });
         if (!existing && siteSettings.signupsClosed && !ADMIN_IDS.has(String(me.id))) {
-          return redirect(res, '/?err=' + encodeURIComponent('New sign-ups are closed right now'));
+          return redirect(res, '/?err=' + encodeURIComponent('New sign-ups are closed right now'), { 'Set-Cookie': clear });
         }
         const user = store.upsert(me.id, { name: me.name, avatar: me.avatar, tokens, lastLogin: Date.now() });
         try {
@@ -761,10 +810,10 @@ const server = http.createServer(async (req, res) => {
           console.error(`Subscription error (${user.name}): ${e.message}`);
           ulog(user, `Could not subscribe to Kick events: ${e.message}`);
         }
-        return redirect(res, '/', { 'Set-Cookie': sessionCookie(user.id) });
+        return redirect(res, '/', { 'Set-Cookie': [sessionCookie(user.id), clear] });
       } catch (e) {
         console.error(`Login error: ${e.message}`);
-        return redirect(res, '/?err=' + encodeURIComponent(e.message));
+        return redirect(res, '/?err=' + encodeURIComponent(e.message), { 'Set-Cookie': clear });
       }
     }
 
@@ -835,6 +884,8 @@ const server = http.createServer(async (req, res) => {
     else res.end();
   }
 });
+
+for (const u of store.all()) pruneSounds(u);
 
 server.listen(PORT, () => {
   console.log(`Ready: ${PUBLIC_URL}  (port ${PORT}, ${store.count()} streamers)`);

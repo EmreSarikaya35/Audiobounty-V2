@@ -379,6 +379,9 @@
     'Cost must be a whole number of 1 or more': 'Bedel 1 veya daha büyük bir tam sayı olmalı',
     'This reward was not found on your Kick channel': 'Bu ödül Kick kanalında bulunamadı',
     'This reward already has a sound': 'Bu ödülün zaten sesi var',
+    'This reward needs approval on Kick. Turn on "Skip reward requests queue" for it in the Kick dashboard, then try again.': "Bu ödül Kick'te onay gerektiriyor. Kick panelinde bu ödül için \"Ödül istekleri kuyruğunu atla\" seçeneğini açıp tekrar dene.",
+    'Could not remove your rewards from Kick': "Ödüller Kick'ten kaldırılamadı",
+    'Could not remove the rewards from Kick (the Kick connection may have expired). Delete anyway? The rewards will stay on Kick and must be removed there.': "Ödüller Kick'ten kaldırılamadı (Kick bağlantısının süresi dolmuş olabilir). Yine de silinsin mi? Ödüller Kick'te kalır ve oradan kaldırılması gerekir.",
     'A reward with this name already exists': 'Bu adda bir ödül zaten var',
     'Reward not found': 'Ödül bulunamadı',
     'This reward was created in the Kick dashboard; change its name, cost and status on Kick': 'Bu ödül Kick panelinde oluşturuldu; adını, bedelini ve durumunu Kick\'te değiştir',
@@ -877,7 +880,7 @@
         return `<div class="alert" data-id="${a.id}">
           <div class="edit">
             <div><label for="et-${a.id}">${t('Reward name')}</label><input id="et-${a.id}" type="text" maxlength="50" value="${esc(a.title)}"></div>
-            <div><label for="ec-${a.id}">${t('Cost')}</label><input id="ec-${a.id}" type="number" min="1" step="1" value="${a.cost}"></div>
+            <div><label for="ec-${a.id}">${t('Cost')}</label><input id="ec-${a.id}" type="number" min="1" step="1" value="${esc(a.cost)}"></div>
             <button class="primary" data-act="save">${t('Save')}</button>
             <button class="ghost" data-act="cancel">${t('Cancel')}</button>
             <div class="color-field">
@@ -890,7 +893,7 @@
       return `<div class="alert ${a.enabled === false ? 'off' : ''} ${anim}" data-id="${a.id}">
         <div>
           <div class="title">${a.color ? `<span class="dot" style="--c:${esc(a.color)}" aria-hidden="true"></span>` : ''}${esc(a.title)}</div>
-          <div class="meta">${a.cost} ${t('points')}${a.tts ? ' · 🗣️ ' + t('text-to-speech') : ''}${a.enabled === false ? ' · ' + t('paused') : ''}${a.managed ? '' : ' · ' + t('created in the Kick dashboard')}</div>
+          <div class="meta">${esc(a.cost)} ${t('points')}${a.tts ? ' · 🗣️ ' + t('text-to-speech') : ''}${a.enabled === false ? ' · ' + t('paused') : ''}${a.managed ? '' : ' · ' + t('created in the Kick dashboard')}</div>
         </div>
         <div class="actions">
           <button class="small" data-act="test" title="${t('Play in OBS')}">${t('Test')}</button>
@@ -929,7 +932,7 @@
       const linked = new Set(me.alerts.map((a) => a.rewardId));
       const free = rewards.filter((r) => !linked.has(r.id));
       sel.innerHTML = free.length
-        ? `<option value="">${esc(t('Choose…'))}</option>` + free.map((r) => `<option value="${esc(r.id)}">${esc(r.title)} (${r.cost} ${esc(t('points'))})</option>`).join('')
+        ? `<option value="">${esc(t('Choose…'))}</option>` + free.map((r) => `<option value="${esc(r.id)}">${esc(r.title)} (${esc(r.cost)} ${esc(t('points'))})</option>`).join('')
         : `<option value="">${esc(t('Every reward already has a sound'))}</option>`;
     } catch (e) {
       sel.innerHTML = `<option value="">${esc(t(e.message))}</option>`;
@@ -1176,7 +1179,12 @@
   $('deleteAccountBtn').addEventListener('click', (e) => {
     if (!confirm(t('Delete your account? Your sounds, settings and the Kick rewards created here will be removed. This cannot be undone.'))) return;
     busy(e.currentTarget, async () => {
-      await api('/api/account', 'DELETE');
+      try {
+        await api('/api/account', 'DELETE');
+      } catch (err) {
+        if (err.message !== 'Could not remove your rewards from Kick' || !confirm(t('Could not remove the rewards from Kick (the Kick connection may have expired). Delete anyway? The rewards will stay on Kick and must be removed there.'))) throw err;
+        await api('/api/account?force=1', 'DELETE');
+      }
       location.href = session.viewingAs ? '/admin' : '/';
     });
   });
