@@ -104,11 +104,22 @@
     setTimeout(next, 300);
   }
 
+  // EventSource gives up for good when the server answers 404 (e.g. while the account is deleted and
+  // not yet re-created), so retry ourselves with backoff instead of needing an OBS refresh.
+  let retryMs = 3000;
   function connect() {
     const key = location.pathname.split('/').pop();
     const es = new EventSource('/events/' + encodeURIComponent(key));
-    es.onopen = () => show('connected');
-    es.onerror = () => show('connection lost, retrying…');
+    es.onopen = () => { retryMs = 3000; show('connected'); };
+    es.onerror = () => {
+      if (es.readyState !== EventSource.CLOSED) return show('connection lost, retrying…');
+      es.close();
+      // Outside OBS, say why nothing happens; inside OBS keep the stream clean.
+      if (!window.obsstudio) document.body.classList.add('debug');
+      show('This OBS link is not active. Waiting for it… If it never connects, copy the current link from the dashboard.');
+      setTimeout(connect, retryMs);
+      retryMs = Math.min(retryMs * 2, 10000);
+    };
     es.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.type === 'play' && queue.length < 30) {

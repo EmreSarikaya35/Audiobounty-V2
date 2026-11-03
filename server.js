@@ -724,11 +724,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     let m;
+    // Served even for unknown keys so an OBS source opened while the account is deleted connects once it is back.
     if ((m = p.match(/^\/overlay\/([\w-]+)$/))) {
-      if (!overlayUser(m[1])) {
-        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-        return res.end('This OBS link is not valid. Copy the current link from the dashboard.');
-      }
       return sendFile(res, path.join(PUBLIC_DIR, 'overlay.html'), STATIC_TYPES['.html']);
     }
 
