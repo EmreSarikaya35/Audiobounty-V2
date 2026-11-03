@@ -127,6 +127,11 @@ section.card > p.lead { margin: 0 0 1rem; color: var(--muted); font-size: .875re
 .banner span { flex: 1; min-width: 12rem; }
 .banner.warn { background: var(--warn-soft); }
 .banner.err { background: var(--danger-soft); }
+.banner.info { background: var(--accent-soft); }
+.meter { height: .5rem; border-radius: 99px; background: var(--surface); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--accent); transition: width 500ms cubic-bezier(.2,.9,.3,1); }
+.meter.full i { background: var(--warn); }
+.storage-text { margin: 0; }
 
 .status { display: inline-flex; align-items: center; gap: .4rem; font-size: .8125rem; font-weight: 600; letter-spacing: 0; padding: .15rem .65rem; border-radius: 99px; }
 .status::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; }

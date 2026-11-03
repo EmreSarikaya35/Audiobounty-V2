@@ -94,6 +94,9 @@
       <button class="ghost small" id="logoutBtn" data-i18n>Log out</button>
     </header>
 
+    <div id="bannerAnnounce" class="banner info" role="status" hidden>
+      <span aria-hidden="true">📣</span><span id="announceText"></span>
+    </div>
     <div id="bannerViewing" class="banner warn" hidden>
       <span id="viewingText"></span>
       <button class="primary small" id="stopViewingBtn" data-i18n>Back to admin</button>
@@ -360,6 +363,12 @@
         <button class="small" type="button" id="regenBtn" data-i18n>Regenerate OBS link</button>
       </div>
 
+      <h3 class="group-title" data-i18n>Storage</h3>
+      <div class="group">
+        <div class="meter" id="storageMeter" role="progressbar" aria-labelledby="storageText"><i id="storageBar"></i></div>
+        <p class="hint storage-text" id="storageText"></p>
+      </div>
+
       <h3 class="group-title" data-i18n>Backup</h3>
       <div class="group">
         <div class="row">
@@ -510,6 +519,7 @@
     "Only necessary": "Sadece gerekli",
     "Accept all": "Tümünü kabul et",
     "Cookie choice saved": "Çerez tercihin kaydedildi",
+    "Storage": "Depolama",
     "Statistics": "İstatistikler",
     "Sounds": "Sesler",
     "+ Add file": "+ Dosya ekle",
@@ -759,6 +769,9 @@
   };
   // Server log lines and messages built from templates.
   const TR_PATTERNS = [
+    [/^Your sound storage is full \((\d+) MB\)\. Delete some sounds to add new ones\.$/, (m) => `Ses depolama alanın dolu (${m[1]} MB). Yeni ses eklemek için birkaç ses sil.`],
+    [/^(.+) of (.+) used$/, (m) => `${m[2]} alanın ${m[1]} kadarı kullanılıyor`],
+    [/^(.+) used, no limit$/, (m) => `${m[1]} kullanılıyor, sınır yok`],
     [/^(\d+) sounds$/, (m) => `${m[1]} ses`],
     [/^\+(\d+) waiting$/, (m) => `+${m[1]} bekliyor`],
     [/^by (.+)$/, (m) => `${m[1]} tarafından`],
@@ -1210,7 +1223,15 @@
     if (session.viewingAs) $('viewingText').textContent = t(`You are viewing ${session.viewingAs.name}'s dashboard as admin${session.viewingAs.banned ? ' (banned)' : ''}. Changes apply to their account.`);
     $('userName').textContent = state.user.name;
     if (state.user.avatar) $('avatar').src = state.user.avatar; else $('avatar').removeAttribute('src');
+    reveal($('bannerAnnounce'), Boolean(state.announcement));
+    $('announceText').textContent = state.announcement;
     reveal($('bannerLegal'), !state.legalOk && !session.viewingAs);
+    const { used, quota } = state.storage, mb = (n) => (n / 1048576).toFixed(n < 10485760 ? 1 : 0) + ' MB';
+    $('storageText').textContent = quota ? t(`${mb(used)} of ${mb(quota)} used`) : t(`${mb(used)} used, no limit`);
+    $('storageMeter').hidden = !quota;
+    $('storageMeter').setAttribute('aria-valuenow', quota ? Math.round((used / quota) * 100) : 0);
+    $('storageBar').style.width = quota ? Math.min(100, (used / quota) * 100) + '%' : '0';
+    $('storageMeter').classList.toggle('full', quota > 0 && used / quota > 0.9);
     reveal($('bannerRelogin'), state.needsRelogin);
     reveal($('bannerRepair'), !state.needsRelogin && !state.subscribed);
 

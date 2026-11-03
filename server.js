@@ -2,6 +2,8 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import zlib from 'node:zlib';
+import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { createStore } from './lib/store.js';
 import { createKick, KickError, REDEMPTION_EVENT, ReloginError } from './lib/kick.js';
@@ -72,7 +74,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || persistentSecret(path.join(
 const OVERLAY_SECRET = process.env.OVERLAY_SECRET || persistentSecret(path.join(DATA_DIR, 'overlay-secret'));
 const store = createStore(DATA_DIR, OVERLAY_SECRET);
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
-const siteSettings = { bannedWords: [], signupsClosed: false, ...readJsonFile(SETTINGS_FILE) };
+const siteSettings = { bannedWords: [], signupsClosed: false, announcement: '', quotaMb: 0, ...readJsonFile(SETTINGS_FILE) };
 const kick = createKick({
   clientId: process.env.KICK_CLIENT_ID,
   clientSecret: process.env.KICK_CLIENT_SECRET,
@@ -470,6 +472,8 @@ function saveSound(user, alertId, sound) {
   const buf = Buffer.from(String(sound.data || ''), 'base64');
   if (!buf.length) throw new HttpError(400, 'Sound file is empty');
   if (buf.length > MAX_SOUND_MB * 1024 * 1024) throw new HttpError(413, `Sound file can be at most ${MAX_SOUND_MB} MB`);
+  const quota = siteSettings.quotaMb * 1024 * 1024;
+  if (quota && dirSize(store.soundDir(user)) + buf.length > quota) throw new HttpError(413, `Your sound storage is full (${siteSettings.quotaMb} MB). Delete some sounds to add new ones.`);
   const name = `${alertId}-${crypto.randomBytes(4).toString('hex')}${ext}`;
   fs.writeFileSync(path.join(store.soundDir(user), name), buf);
   return name;
@@ -599,6 +603,8 @@ function meState(user) {
     stats: statsView(user),
     publicPage: Boolean(user.publicPage),
     legalOk: user.legal?.version === LEGAL_VERSION,
+    announcement: siteSettings.announcement,
+    storage: { used: dirSize(store.soundDir(user)), quota: siteSettings.quotaMb * 1024 * 1024 },
     publicUrl: `${PUBLIC_URL}/c/${encodeURIComponent(user.name || '')}`,
     limits: { maxSoundMb: MAX_SOUND_MB, maxAlerts: MAX_ALERTS, maxPool: MAX_POOL },
   };
@@ -860,6 +866,43 @@ async function handleApi(req, res, user, p, admin) {
   throw new HttpError(404, 'Not found');
 }
 
+// Every file under dir, as paths relative to it, skipping half-written .tmp files.
+function listFiles(dir, rel = '') {
+  const out = [];
+  for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
+    const r = path.posix.join(rel, e.name);
+    if (e.isDirectory()) out.push(...listFiles(dir, r));
+    else if (e.isFile() && !e.name.endsWith('.tmp')) out.push(r);
+  }
+  return out;
+}
+
+// A ustar header block; names over 100 bytes go in the 155-byte prefix field.
+function tarHeader(name, size, mtimeMs) {
+  const h = Buffer.alloc(512);
+  let prefix = '';
+  if (Buffer.byteLength(name) > 100) {
+    const cut = name.lastIndexOf('/', 155);
+    prefix = name.slice(0, cut);
+    name = name.slice(cut + 1);
+  }
+  const put = (str, off, len) => h.write(str, off, len, 'utf8');
+  put(name, 0, 100);
+  h.write('0000644\0', 100);
+  h.write('0000000\0', 108);
+  h.write('0000000\0', 116);
+  h.write(size.toString(8).padStart(11, '0') + '\0', 124);
+  h.write(Math.floor(mtimeMs / 1000).toString(8).padStart(11, '0') + '\0', 136);
+  h.write('        ', 148);
+  h.write('0', 156);
+  h.write('ustar\0' + '00', 257);
+  put(prefix, 345, 155);
+  let sum = 0;
+  for (const b of h) sum += b;
+  h.write(sum.toString(8).padStart(6, '0') + '\0 ', 148);
+  return h;
+}
+
 function dirSize(dir) {
   let n = 0;
   try { for (const f of fs.readdirSync(dir)) n += fs.statSync(path.join(dir, f)).size; } catch {}
@@ -928,9 +971,33 @@ async function handleAdmin(req, res, admin, p) {
     const b = await readJson(req);
     if (b.bannedWords !== undefined) siteSettings.bannedWords = parseWordList(b.bannedWords);
     if (b.signupsClosed !== undefined) siteSettings.signupsClosed = Boolean(b.signupsClosed);
+    if (b.announcement !== undefined) siteSettings.announcement = String(b.announcement).trim().slice(0, 500);
+    if (b.quotaMb !== undefined) siteSettings.quotaMb = Math.max(0, Math.min(100000, Math.round(Number(b.quotaMb)) || 0));
     saveSiteSettings();
     console.log(`Admin ${admin.name}: site settings changed`);
     return sendJson(res, 200, adminState());
+  }
+
+  // Everything in DATA_DIR as one .tar.gz, streamed file by file. Restore by extracting it into DATA_DIR.
+  if (p === '/api/admin/backup' && m === 'GET') {
+    const date = new Date().toISOString().slice(0, 10);
+    res.writeHead(200, { 'Content-Type': 'application/gzip', 'Content-Disposition': `attachment; filename="audiobounty-site-${date}.tar.gz"`, 'Cache-Control': 'no-store' });
+    const gz = zlib.createGzip();
+    gz.pipe(res);
+    res.on('close', () => gz.destroy()); // the admin cancelled the download
+    const put = async (buf) => { if (!gz.write(buf)) await Promise.race([once(gz, 'drain'), once(gz, 'close')]); };
+    for (const rel of listFiles(DATA_DIR)) {
+      if (gz.destroyed) return;
+      const file = path.join(DATA_DIR, rel);
+      let data;
+      try { data = fs.readFileSync(file); } catch { continue; } // deleted meanwhile
+      await put(tarHeader(`data/${rel}`, data.length, fs.statSync(file).mtimeMs));
+      await put(data);
+      if (data.length % 512) await put(Buffer.alloc(512 - (data.length % 512)));
+    }
+    gz.end(Buffer.alloc(1024));
+    console.log(`Admin ${admin.name}: downloaded the full site backup`);
+    return;
   }
 
   const um = p.match(/^\/api\/admin\/users\/(\d+)(\/view)?$/);

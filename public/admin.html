@@ -88,12 +88,26 @@
   </section>
 
   <section class="card">
+    <h2 data-i18n>Full site backup</h2>
+    <p class="lead" data-i18n>Every streamer, sound, setting, secret and access log in one .tar.gz file. To restore, extract it in the data folder of a new server. Keep it safe: it contains login secrets and IP logs.</p>
+    <a class="btn primary" href="/api/admin/backup" download data-i18n>Download full backup</a>
+  </section>
+
+  <section class="card">
     <h2 data-i18n>Site settings</h2>
     <p class="lead" data-i18n>These apply to every streamer.</p>
     <div class="settings">
       <div class="wide">
         <label for="globalBanned" data-i18n>Banned words for everyone (comma or one per line)</label>
         <textarea id="globalBanned" rows="3"></textarea>
+      </div>
+      <div class="wide">
+        <label for="announcement" data-i18n>Announcement for all streamers (leave empty to hide)</label>
+        <textarea id="announcement" rows="2" maxlength="500" data-i18n-ph="e.g. Short maintenance tonight at 03:00"></textarea>
+      </div>
+      <div>
+        <label for="quotaMb" data-i18n>Sound storage per streamer (MB, 0 = no limit)</label>
+        <input type="number" id="quotaMb" min="0" step="1">
       </div>
       <label class="check wide"><input type="checkbox" class="switch" role="switch" id="signupsClosed"> <span data-i18n>Close new sign-ups (existing streamers can still log in)</span></label>
       <div><button class="primary" id="saveSettings" data-i18n>Save</button></div>
@@ -134,6 +148,12 @@
     'No streamers found': 'Yayıncı bulunamadı',
     'Theme': 'Tema',
     'System': 'Sistem',
+    'Announcement for all streamers (leave empty to hide)': 'Tüm yayıncılara duyuru (gizlemek için boş bırak)',
+    'e.g. Short maintenance tonight at 03:00': 'örn. Bu gece 03:00\'te kısa bir bakım yapılacak',
+    'Sound storage per streamer (MB, 0 = no limit)': 'Yayıncı başına ses depolama (MB, 0 = sınırsız)',
+    'Full site backup': 'Tüm sitenin yedeği',
+    'Every streamer, sound, setting, secret and access log in one .tar.gz file. To restore, extract it in the data folder of a new server. Keep it safe: it contains login secrets and IP logs.': 'Tüm yayıncılar, sesler, ayarlar, gizli anahtarlar ve erişim kayıtları tek bir .tar.gz dosyasında. Geri yüklemek için yeni sunucunun data klasörüne çıkar. Güvenli bir yerde sakla: giriş anahtarlarını ve IP kayıtlarını içeriyor.',
+    'Download full backup': 'Tüm yedeği indir',
     'Terms not accepted': 'Koşullar onaylanmadı',
     'Kick sends a webhook for every redemption. If none arrive while streamers are live, the Kick app settings or the public URL are wrong.': "Kick her ödül kullanımında bir webhook gönderir. Yayıncılar yayındayken hiç gelmiyorsa Kick uygulama ayarları ya da site adresi yanlıştır.",
     'Recent errors': 'Son hatalar',
@@ -258,6 +278,8 @@
     if (!settingsDirty) {
       $('globalBanned').value = s.settings.bannedWords.join(', ');
       $('signupsClosed').checked = s.settings.signupsClosed;
+      $('announcement').value = s.settings.announcement || '';
+      $('quotaMb').value = s.settings.quotaMb || 0;
     }
   }
 
@@ -289,10 +311,10 @@
   });
 
   $('search').addEventListener('input', () => render(state));
-  $('globalBanned').addEventListener('input', () => { settingsDirty = true; });
+  for (const id of ['globalBanned', 'announcement', 'quotaMb']) $(id).addEventListener('input', () => { settingsDirty = true; });
   $('saveSettings').addEventListener('click', (e) => busy(e.currentTarget, async () => {
     settingsDirty = false;
-    render(await api('/api/admin/settings', 'POST', { bannedWords: $('globalBanned').value, signupsClosed: $('signupsClosed').checked }));
+    render(await api('/api/admin/settings', 'POST', { bannedWords: $('globalBanned').value, signupsClosed: $('signupsClosed').checked, announcement: $('announcement').value, quotaMb: Number($('quotaMb').value) }));
     toast('Saved');
   }));
 
