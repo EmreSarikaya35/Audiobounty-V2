@@ -77,9 +77,9 @@
   <!-- Logged in -->
   <div id="app" hidden>
     <header class="top">
-      <span class="brand" aria-hidden="true">🔊</span>
       <img id="avatar" alt="">
       <span class="name" id="userName"></span>
+      <button class="ghost small icon-btn" type="button" id="settingsOpen" data-i18n-label="Settings" data-i18n-title="Settings">⚙︎</button>
       <button class="ghost small lang-btn" type="button" aria-label="Language / Dil">TR / EN</button>
       <div class="menu-wrap theme-wrap">
         <button class="ghost small theme-btn" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false">◐</button>
@@ -97,7 +97,6 @@
       <span id="viewingText"></span>
       <button class="primary small" id="stopViewingBtn" data-i18n>Back to admin</button>
     </div>
-
     <div id="bannerRelogin" class="banner err" hidden>
       <span data-i18n>Your Kick connection has expired. Log in again to keep your sounds working.</span>
       <a class="btn primary small" href="/auth/login" data-i18n>Log in again</a>
@@ -106,124 +105,221 @@
       <span data-i18n>We're not receiving reward notifications from Kick. Sounds won't play when rewards are redeemed.</span>
       <button class="primary small" id="repairBtn" data-i18n>Repair</button>
     </div>
-    <div id="bannerMuted" class="banner warn" hidden>
-      <span data-i18n>All sounds are muted. Redemptions are logged but nothing plays in OBS.</span>
-    </div>
 
-    <section class="card">
-      <h2><span data-i18n>Your OBS link</span> <span id="obsStatus" class="status off"></span></h2>
-      <p class="lead" data-i18n>This link is personal. Don't share it with anyone.</p>
-      <div class="linkbox">
-        <code id="overlayUrl">••••••••</code>
-        <button class="primary" id="copyOverlay" data-i18n>Copy</button>
-      </div>
-      <ol class="steps">
-        <li data-i18n>In OBS, click <b>+</b> under <b>Sources</b> and choose <b>Browser</b>.</li>
-        <li data-i18n>Paste the link into the <b>URL</b> field and click <b>OK</b>.</li>
-        <li data-i18n>Tick <b>Control audio via OBS</b> to see the sound in the OBS mixer.</li>
-      </ol>
-    </section>
-
-    <section class="card">
-      <h2><span data-i18n>Live controls</span></h2>
-      <p class="lead" data-i18n>Use these during the stream.</p>
-      <div class="live">
-        <button id="muteBtn" aria-pressed="false"></button>
-        <button id="skipBtn" data-i18n>Skip current sound</button>
-        <button id="clearBtn" data-i18n>Clear queue</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2 data-i18n>Sound rewards</h2>
-      <p class="lead" data-i18n>Rewards you add here are created on your Kick channel automatically. When a viewer redeems one, its sound plays in OBS.</p>
-      <div class="alerts" id="alerts"></div>
-      <button class="ghost small more" type="button" id="alertsMore" hidden></button>
-      <form class="add" id="addForm" autocomplete="off">
-        <div><label for="newTitle" data-i18n>Reward name</label><input id="newTitle" type="text" maxlength="50" data-i18n-ph="e.g. sound1" required></div>
-        <div><label for="newCost" data-i18n>Cost</label><input id="newCost" type="number" min="1" step="1" value="100" required></div>
-        <div>
-          <label for="newSound" data-i18n>Sound file</label>
-          <div class="sound-pick">
-            <div class="file-pick" id="newSoundPick">
-              <input id="newSound" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.webm,audio/*" required>
-              <span class="btn"></span>
-            </div>
-            <button type="button" class="mi-btn" data-i18n-title="Pick a sound from myinstants.com">myinstants</button>
-          </div>
-        </div>
-        <button class="primary" type="submit" id="addBtn" data-i18n>Add</button>
-        <div class="color-field">
-          <span class="field-label" id="colorLabel" data-i18n>Color on Kick</span>
-          <div class="swatches" role="radiogroup" aria-labelledby="colorLabel" id="newSwatches"></div>
-        </div>
-        <label class="check"><input type="checkbox" class="switch" role="switch" id="newTts"> <span data-i18n>Read the viewer's message aloud (text-to-speech). The sound becomes optional.</span></label>
-      </form>
-      <details class="link-existing" id="linkDetails">
-        <summary data-i18n>Add a sound to a reward that already exists on Kick</summary>
-        <form class="add" id="linkForm" autocomplete="off">
-          <div><label for="linkReward" data-i18n>Kick reward</label><select id="linkReward" required></select></div>
-          <div>
-            <label for="linkSound" data-i18n>Sound file</label>
-            <div class="sound-pick">
-              <div class="file-pick" id="linkSoundPick">
-                <input id="linkSound" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.webm,audio/*" required>
-                <span class="btn"></span>
-              </div>
-              <button type="button" class="mi-btn" data-i18n-title="Pick a sound from myinstants.com">myinstants</button>
+    <!-- Everything needed during a stream, always at the top -->
+    <section class="card statusbar" id="statusCard">
+      <div class="status-line">
+        <span id="obsStatus" class="status off"></span>
+        <div class="status-actions">
+          <button class="primary" id="copyOverlay" data-i18n>Copy OBS link</button>
+          <button id="muteBtn" aria-pressed="false"></button>
+          <div class="menu-wrap">
+            <button class="icon" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false" data-i18n-label="Live controls">•••</button>
+            <div class="menu" role="menu">
+              <button role="menuitem" id="skipBtn" data-i18n>Skip current sound</button>
+              <button role="menuitem" id="clearBtn" data-i18n>Clear queue</button>
             </div>
           </div>
-          <button class="primary" type="submit" id="linkBtn" data-i18n>Attach</button>
-          <label class="check"><input type="checkbox" class="switch" role="switch" id="linkTts"> <span data-i18n>Read the viewer's message aloud (the reward must ask viewers for text on Kick)</span></label>
-        </form>
+        </div>
+      </div>
+      <details class="obs-help" id="obsHelp">
+        <summary data-i18n>How to add it to OBS</summary>
+        <ol class="steps">
+          <li data-i18n>Click <b>Copy OBS link</b> above. The link is personal, don't share it.</li>
+          <li data-i18n>In OBS, click <b>+</b> under <b>Sources</b> and choose <b>Browser</b>.</li>
+          <li data-i18n>Paste the link into the <b>URL</b> field and click <b>OK</b>.</li>
+          <li data-i18n>Tick <b>Control audio via OBS</b> to see the sound in the OBS mixer.</li>
+        </ol>
       </details>
     </section>
 
-    <section class="card">
-      <h2 data-i18n>Settings</h2>
-      <div class="settings">
-        <div>
-          <label for="masterVolume"><span data-i18n>Master volume</span>: <span id="masterVal"></span></label>
-          <input id="masterVolume" type="range" min="0" max="1" step="0.05">
-        </div>
-        <div>
-          <label for="maxDuration" data-i18n>Max sound length (seconds, 0 = no limit)</label>
-          <input id="maxDuration" type="number" min="0" max="60" step="1" data-setting="maxDuration">
-        </div>
-        <label class="check"><input type="checkbox" class="switch" role="switch" id="normalize" data-setting="normalize"> <span data-i18n>Even out loudness (turns down sounds that are much louder than the rest)</span></label>
-        <label class="check"><input type="checkbox" class="switch" role="switch" id="card" data-setting="card"> <span data-i18n>Show who redeemed it on stream</span></label>
-        <div>
-          <label for="ttsLang" data-i18n>Text-to-speech voice</label>
-          <select id="ttsLang" data-setting="ttsLang"><option value="tr">Türkçe</option><option value="en">English</option></select>
-        </div>
-        <div class="wide">
-          <label for="bannedWords" data-i18n>Banned words for text-to-speech (comma or line separated). Messages with these words are not read.</label>
-          <textarea id="bannedWords" rows="3" data-setting="bannedWords"></textarea>
-        </div>
-        <div class="row wide">
-          <button class="small" id="regenBtn" data-i18n>Regenerate OBS link</button>
-          <button class="small ghost danger" id="deleteAccountBtn" data-i18n>Delete account</button>
-        </div>
+    <section class="rewards">
+      <div class="section-head">
+        <h2 data-i18n>Sound rewards</h2>
+        <button class="primary" type="button" id="addOpen" data-i18n>+ New reward</button>
       </div>
+      <div class="reward-grid" id="alerts"></div>
+      <button class="ghost small more" type="button" id="alertsMore" hidden></button>
     </section>
 
-    <section class="card">
-      <h2 data-i18n>Recent activity</h2>
-      <ul class="log" id="log"></ul>
-      <button class="ghost small more" type="button" id="logMore" hidden></button>
-    </section>
+    <button class="activity" type="button" id="activityOpen">
+      <span class="activity-label" data-i18n>Recent activity</span>
+      <span class="activity-last" id="lastActivity"></span>
+      <span class="chev" aria-hidden="true">›</span>
+    </button>
   </div>
 
   <footer data-i18n>Designed and built by Emre Sarıkaya.</footer>
 </main>
 <div id="toast" role="status" aria-live="polite"></div>
-<dialog id="miDialog" aria-labelledby="miTitle">
-  <div class="scrim" id="miScrim"></div>
-  <div class="panel" id="miPanel">
-    <div class="sheet-grab" id="miGrab">
+
+<!-- Sheets: a centered panel on wide screens, a draggable bottom sheet on phones -->
+<dialog class="sheet" id="addSheet" aria-labelledby="addTitle">
+  <div class="scrim"></div>
+  <div class="panel">
+    <div class="sheet-grab">
+      <span class="grabber" aria-hidden="true"></span>
+      <h2 id="addTitle" data-i18n>New reward</h2>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+    </div>
+    <form class="sheet-body" id="addForm" autocomplete="off">
+      <div class="seg" role="group" id="addMode">
+        <button type="button" class="on" data-mode="new" data-i18n>New reward</button>
+        <button type="button" data-mode="kick" data-i18n>From Kick</button>
+      </div>
+      <div class="group" data-pane="new">
+        <div class="field"><label for="newTitle" data-i18n>Reward name</label><input id="newTitle" type="text" maxlength="50" data-i18n-ph="e.g. Air horn"></div>
+        <div class="field"><label for="newCost" data-i18n>Cost (channel points)</label><input id="newCost" type="number" min="1" step="1" value="100"></div>
+        <div class="field">
+          <span class="field-label" id="colorLabel" data-i18n>Color on Kick</span>
+          <div class="swatches" role="radiogroup" aria-labelledby="colorLabel" id="newSwatches"></div>
+        </div>
+      </div>
+      <div class="group" data-pane="kick" hidden>
+        <div class="field"><label for="linkReward" data-i18n>Kick reward</label><select id="linkReward"></select></div>
+        <p class="hint" data-i18n>Use a reward you created in the Kick dashboard. It needs "Skip reward requests queue" turned on in Kick.</p>
+      </div>
+      <div class="group">
+        <div class="field">
+          <span class="field-label" data-i18n>Sound</span>
+          <div class="sound-pick">
+            <div class="file-pick" id="newSoundPick">
+              <input id="newSound" type="file" accept=".mp3,.wav,.ogg,.m4a,.aac,.webm,audio/*">
+              <span class="btn"></span>
+            </div>
+            <button type="button" class="mi-btn" data-i18n-title="Pick a sound from myinstants.com">myinstants</button>
+          </div>
+        </div>
+        <label class="check row-check"><span data-i18n>Read the viewer's message aloud</span><input type="checkbox" class="switch" role="switch" id="newTts"></label>
+        <p class="hint" id="ttsHint" data-i18n>With text-to-speech on, the sound is optional.</p>
+      </div>
+      <button class="primary wide-btn" type="submit" id="addBtn" data-i18n>Add reward</button>
+    </form>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="editSheet" aria-labelledby="editTitle">
+  <div class="scrim"></div>
+  <div class="panel">
+    <div class="sheet-grab">
+      <span class="grabber" aria-hidden="true"></span>
+      <h2 id="editTitle"></h2>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+    </div>
+    <div class="sheet-body" id="editBody">
+      <div class="group" id="editKickFields">
+        <div class="field"><label for="editName" data-i18n>Reward name</label><input id="editName" type="text" maxlength="50"></div>
+        <div class="field"><label for="editCost" data-i18n>Cost (channel points)</label><input id="editCost" type="number" min="1" step="1"></div>
+        <div class="field">
+          <span class="field-label" id="editColorLabel" data-i18n>Color on Kick</span>
+          <div class="swatches" role="radiogroup" aria-labelledby="editColorLabel" id="editSwatches"></div>
+        </div>
+        <button class="primary" type="button" id="editSave" data-i18n>Save changes</button>
+      </div>
+      <p class="hint" id="editKickNote" data-i18n>This reward was created in the Kick dashboard. Change its name, cost and color on Kick.</p>
+      <div class="group">
+        <div class="field">
+          <span class="field-label" data-i18n>Sound</span>
+          <div class="sound-row">
+            <span class="sound-name" id="editSoundName"></span>
+            <button class="icon" type="button" id="editPreview" data-i18n-label="Listen here" data-i18n-title="Listen here">▶</button>
+          </div>
+          <div class="row">
+            <button class="small" type="button" id="editFile" data-i18n>Choose file…</button>
+            <button class="small" type="button" id="editMi" data-i18n>From myinstants</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="editVolume"><span data-i18n>Volume level</span>: <span id="editVolVal"></span></label>
+          <input id="editVolume" type="range" min="0" max="1" step="0.05">
+        </div>
+        <label class="check row-check"><span data-i18n>Read the viewer's message aloud</span><input type="checkbox" class="switch" role="switch" id="editTts"></label>
+        <label class="check row-check" id="editPausedRow"><span data-i18n>Pause this reward</span><input type="checkbox" class="switch" role="switch" id="editPaused"></label>
+      </div>
+      <div class="row">
+        <button class="small" type="button" id="editTest" data-i18n>Test in OBS</button>
+        <button class="small ghost danger" type="button" id="editDelete" data-i18n>Delete reward</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="settingsSheet" aria-labelledby="settingsTitle">
+  <div class="scrim"></div>
+  <div class="panel">
+    <div class="sheet-grab">
+      <span class="grabber" aria-hidden="true"></span>
+      <h2 id="settingsTitle" data-i18n>Settings</h2>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <h3 class="group-title" data-i18n>Sound</h3>
+      <div class="group">
+        <div class="field">
+          <label for="masterVolume"><span data-i18n>Master volume</span>: <span id="masterVal"></span></label>
+          <input id="masterVolume" type="range" min="0" max="1" step="0.05">
+        </div>
+        <div class="field inline-field">
+          <label for="maxDuration" data-i18n>Max sound length (seconds)</label>
+          <input id="maxDuration" type="number" min="0" max="60" step="1" data-setting="maxDuration">
+        </div>
+        <p class="hint" data-i18n>0 means no limit. Longer sounds are cut off.</p>
+        <label class="check row-check"><span data-i18n>Even out loudness</span><input type="checkbox" class="switch" role="switch" id="normalize" data-setting="normalize"></label>
+        <p class="hint" data-i18n>Turns down sounds that are much louder than the rest.</p>
+      </div>
+
+      <h3 class="group-title" data-i18n>On stream</h3>
+      <div class="group">
+        <label class="check row-check"><span data-i18n>Show who redeemed it on stream</span><input type="checkbox" class="switch" role="switch" id="card" data-setting="card"></label>
+      </div>
+
+      <h3 class="group-title" data-i18n>Text-to-speech</h3>
+      <div class="group">
+        <div class="field inline-field">
+          <label for="ttsLang" data-i18n>Voice</label>
+          <select id="ttsLang" data-setting="ttsLang"><option value="tr">Türkçe</option><option value="en">English</option></select>
+        </div>
+        <div class="field">
+          <label for="bannedWords" data-i18n>Banned words</label>
+          <textarea id="bannedWords" rows="3" data-setting="bannedWords" data-i18n-ph="Comma or line separated"></textarea>
+        </div>
+        <p class="hint" data-i18n>Messages with these words are not read.</p>
+      </div>
+
+      <h3 class="group-title" data-i18n>OBS link</h3>
+      <div class="group">
+        <div class="linkbox"><code id="overlayUrl">••••••••</code></div>
+        <p class="hint" data-i18n>This link is personal. Don't share it with anyone.</p>
+        <button class="small" type="button" id="regenBtn" data-i18n>Regenerate OBS link</button>
+      </div>
+
+      <h3 class="group-title" data-i18n>Account</h3>
+      <div class="group">
+        <button class="small ghost danger" type="button" id="deleteAccountBtn" data-i18n>Delete account</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="activitySheet" aria-labelledby="activityTitle">
+  <div class="scrim"></div>
+  <div class="panel">
+    <div class="sheet-grab">
+      <span class="grabber" aria-hidden="true"></span>
+      <h2 id="activityTitle" data-i18n>Recent activity</h2>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+    </div>
+    <div class="sheet-body"><ul class="log" id="log"></ul></div>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="miDialog" aria-labelledby="miTitle">
+  <div class="scrim"></div>
+  <div class="panel">
+    <div class="sheet-grab">
       <span class="grabber" aria-hidden="true"></span>
       <h2 id="miTitle" data-i18n>Pick a sound from myinstants.com</h2>
-      <button class="icon ghost" type="button" id="miClose" data-i18n-label="Close">✕</button>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
     </div>
     <form class="mi-search" id="miSearch">
       <input id="miQuery" type="search" data-i18n-ph="Search, e.g. bruh" aria-label="myinstants.com">
@@ -241,12 +337,54 @@
   let me = null;
   let session = {};
   let alertsKey = '';
-  let editingId = null;
   let draggingVolume = false;
   let previewAudio = null;
 
   // UI text is written in English; TR maps each English string (and server message) to Turkish.
   const TR = {
+    "Volume level": "Ses düzeyi",
+    "Pause this reward": "Ödülü duraklat",
+    "Your Kick connection expired, please log in again": "Kick bağlantının süresi doldu, lütfen tekrar giriş yap",
+    "Not connected to Kick": "Kick'e bağlı değil",
+    "Copy OBS link": "OBS linkini kopyala",
+    "How to add it to OBS": "OBS'e nasıl eklenir?",
+    "Click <b>Copy OBS link</b> above. The link is personal, don't share it.": "Yukarıdaki <b>OBS linkini kopyala</b>'ya tıkla. Link sana özel, kimseyle paylaşma.",
+    "+ New reward": "+ Yeni ödül",
+    "New reward": "Yeni ödül",
+    "From Kick": "Kick'teki ödül",
+    "e.g. Air horn": "örn. Korna",
+    "Cost (channel points)": "Bedel (kanal puanı)",
+    "Use a reward you created in the Kick dashboard. It needs \"Skip reward requests queue\" turned on in Kick.": "Kick panelinde oluşturduğun bir ödülü kullan. Kick'te \"Ödül istekleri kuyruğunu atla\" açık olmalı.",
+    "Sound": "Ses",
+    "Read the viewer's message aloud": "İzleyicinin mesajını sesli oku",
+    "With text-to-speech on, the sound is optional.": "Metin okuma açıksa ses eklemek zorunlu değil.",
+    "Add reward": "Ödülü ekle",
+    "Save changes": "Değişiklikleri kaydet",
+    "This reward was created in the Kick dashboard. Change its name, cost and color on Kick.": "Bu ödül Kick panelinde oluşturuldu. Adını, bedelini ve rengini Kick'ten değiştir.",
+    "From myinstants": "myinstants'tan seç",
+    "Paused": "Duraklatıldı",
+    "Test in OBS": "OBS'te test et",
+    "Delete reward": "Ödülü sil",
+    "Max sound length (seconds)": "En uzun ses süresi (saniye)",
+    "0 means no limit. Longer sounds are cut off.": "0 sınırsız demek. Daha uzun sesler kesilir.",
+    "Even out loudness": "Ses yüksekliğini dengele",
+    "Turns down sounds that are much louder than the rest.": "Diğerlerinden çok daha yüksek sesleri kısar.",
+    "On stream": "Yayında",
+    "Text-to-speech": "Metin okuma",
+    "Voice": "Ses dili",
+    "Banned words": "Yasaklı kelimeler",
+    "Comma or line separated": "Virgülle veya her satıra bir tane",
+    "Messages with these words are not read.": "Bu kelimeleri içeren mesajlar okunmaz.",
+    "OBS link": "OBS linki",
+    "Account": "Hesap",
+    "Muted": "Sessizde",
+    "Mute": "Sessize al",
+    "No sound rewards yet": "Henüz sesli ödül yok",
+    "Add a reward and pick a sound. When a viewer redeems it on Kick, the sound plays in OBS.": "Bir ödül ekle ve ses seç. İzleyici ödülü Kick'te kullandığında ses OBS'te çalar.",
+    "Add your first reward": "İlk ödülünü ekle",
+    "Reads messages": "Mesaj okur",
+    "Kick dashboard": "Kick paneli",
+    "No sound (text-to-speech only)": "Ses yok (sadece metin okuma)",
     'Let your viewers play sounds<br>on stream with channel points': 'İzleyicilerin kanal puanlarıyla<br>yayında ses çalsın',
     'Create a reward, upload a sound, paste the link into OBS. Nothing to download, nothing to configure.': 'Bir ödül oluştur, ses ekle, bağlantıyı OBS\'e yapıştır. İndirilecek ya da ayarlanacak bir şey yok.',
     'Log in with Kick': 'Kick ile giriş yap',
@@ -443,8 +581,8 @@
 
   function toast(msg, err) {
     const el = $('toast');
-    // The picker is in the top layer; move the toast inside it so it isn't hidden underneath.
-    const host = $('miDialog').open ? $('miDialog') : document.body;
+    // Sheets are in the top layer; move the toast inside the topmost one so it isn't hidden underneath.
+    const host = openSheets[openSheets.length - 1]?.dlg || document.body;
     if (el.parentElement !== host) host.append(el);
     el.textContent = t(msg);
     el.classList.toggle('err', Boolean(err));
@@ -578,15 +716,114 @@
   }
   lightQuery.addEventListener('change', () => { if (themePref === 'auto') setTheme('auto'); });
 
+  // Sheets: one progress value p (0 closed, 1 open) per sheet, driven by a spring. Phones get a bottom sheet
+  // you can drag and flick away; wider screens get a panel that grows out of the button that opened it.
+  const asSheet = matchMedia('(max-width: 640px)');
+  const openSheets = [];
+
+  function makeSheet(dlg) {
+    const panel = dlg.querySelector('.panel'), scrim = dlg.querySelector('.scrim'), grab = dlg.querySelector('.sheet-grab');
+    let p = 0, stop = null;
+    const sheet = { dlg, onClose: null };
+
+    function set(v) {
+      p = v;
+      const c = Math.max(0, Math.min(1, v));
+      scrim.style.opacity = c;
+      if (reduceMotion.matches) { panel.style.opacity = c; panel.style.transform = ''; panel.style.filter = ''; return; }
+      if (asSheet.matches) {
+        panel.style.opacity = 1;
+        panel.style.transform = `translateY(${(1 - v) * panel.offsetHeight}px)`;
+        panel.style.filter = '';
+      } else {
+        panel.style.opacity = c;
+        panel.style.transform = `scale(${0.82 + 0.18 * v})`;
+        panel.style.filter = c < 1 ? `blur(${(1 - c) * 10}px)` : ''; // materialize, not just fade
+      }
+    }
+
+    function animate(to, velocity = 0, damping = 1) {
+      stop?.();
+      return new Promise((done) => {
+        stop = spring(p, to, {
+          damping: reduceMotion.matches ? 1 : damping,
+          response: reduceMotion.matches ? 0.25 : asSheet.matches ? 0.38 : 0.34,
+          velocity: reduceMotion.matches ? 0 : velocity,
+          onUpdate: set,
+          onDone: done,
+        });
+      });
+    }
+
+    sheet.open = (trigger) => {
+      if (dlg.open) return;
+      dlg.showModal();
+      openSheets.push(sheet);
+      panel.style.transform = 'none';
+      const r = trigger?.getBoundingClientRect(), pr = panel.getBoundingClientRect();
+      panel.style.transformOrigin = r && !asSheet.matches ? `${r.left + r.width / 2 - pr.left}px ${r.top + r.height / 2 - pr.top}px` : '';
+      set(0);
+      animate(1);
+    };
+    // Never resolves if the sheet is grabbed again on the way out, which is what keeps it open.
+    sheet.close = async (velocity = 0) => {
+      await animate(0, velocity);
+      dlg.close();
+    };
+    dlg.addEventListener('close', () => {
+      stop?.();
+      openSheets.splice(openSheets.indexOf(sheet), 1);
+      sheet.onClose?.();
+    });
+    dlg.addEventListener('cancel', (e) => { e.preventDefault(); sheet.close(); });
+    scrim.addEventListener('click', () => sheet.close());
+    dlg.querySelector('[data-close]').addEventListener('click', () => sheet.close());
+
+    // Drag the sheet by its header: 1:1 from where it was grabbed, rubber-band upwards, flick to dismiss.
+    grab.addEventListener('pointerdown', (e) => {
+      if (!asSheet.matches || reduceMotion.matches || e.button !== 0 || e.target.closest('button')) return;
+      stop?.();
+      const h = panel.offsetHeight, startOffset = (1 - p) * h, startY = e.clientY;
+      let offset = startOffset;
+      const hist = [{ y: e.clientY, t: e.timeStamp }];
+      grab.setPointerCapture(e.pointerId);
+      const move = (ev) => {
+        hist.push({ y: ev.clientY, t: ev.timeStamp });
+        if (hist.length > 6) hist.shift();
+        offset = startOffset + ev.clientY - startY;
+        set(1 - (offset < 0 ? rubberband(offset, h) : offset) / h);
+      };
+      const up = () => {
+        grab.removeEventListener('pointermove', move);
+        grab.removeEventListener('pointerup', up);
+        grab.removeEventListener('pointercancel', up);
+        const a = hist[0], b = hist[hist.length - 1];
+        const vy = b.t > a.t ? ((b.y - a.y) / (b.t - a.t)) * 1000 : 0; // px/s, + is downwards
+        const pVelocity = -vy / h;
+        if (Math.max(offset, 0) + project(vy) > h * 0.4) sheet.close(pVelocity);
+        else animate(1, pVelocity, 0.8); // a flick carried momentum, so allow a little bounce
+      };
+      grab.addEventListener('pointermove', move);
+      grab.addEventListener('pointerup', up);
+      grab.addEventListener('pointercancel', up);
+    });
+    return sheet;
+  }
+
+  const addSheet = makeSheet($('addSheet'));
+  const editSheet = makeSheet($('editSheet'));
+  const settingsSheet = makeSheet($('settingsSheet'));
+  const activitySheet = makeSheet($('activitySheet'));
+  const miSheet = makeSheet($('miDialog'));
+
   // A sound comes from a local file or a myinstants pick; sound() returns what /api/alerts expects
   // (null when the sound is optional, i.e. a text-to-speech reward, and nothing was picked).
   function bindFilePick(pickId) {
     const wrap = $(pickId), input = wrap.querySelector('input'), label = wrap.querySelector('.btn');
-    let remote = null, optional = false;
+    let remote = null;
     const show = (name) => {
       wrap.classList.toggle('has', Boolean(name));
       label.textContent = name || t('Choose file…');
-      input.required = !remote && !optional;
     };
     input.addEventListener('change', () => { remote = null; show(input.files[0]?.name); });
     wrap.nextElementSibling.addEventListener('click', async (e) => {
@@ -598,8 +835,7 @@
     });
     return {
       reset() { remote = null; input.value = ''; show(''); },
-      setOptional(v) { optional = v; input.required = !remote && !optional; },
-      sound(maxMb) {
+      sound(maxMb, optional) {
         if (remote) return { url: remote.url };
         const f = input.files[0];
         if (!f) { if (optional) return null; throw new Error('Choose a sound file'); }
@@ -636,99 +872,19 @@
     });
   }
 
-  // The picker is one progress value p (0 closed, 1 open) driven by a spring. Phones get a bottom sheet
-  // you can drag and flick away; wider screens get a panel that grows out of the button that opened it.
-  const asSheet = matchMedia('(max-width: 640px)');
-  const dlg = $('miDialog'), panel = $('miPanel'), scrim = $('miScrim');
-  let sheetP = 0, stopSheet = null;
-
-  function setSheet(p) {
-    sheetP = p;
-    const c = Math.max(0, Math.min(1, p));
-    scrim.style.opacity = c;
-    if (reduceMotion.matches) { panel.style.opacity = c; panel.style.transform = ''; panel.style.filter = ''; return; }
-    if (asSheet.matches) {
-      panel.style.opacity = 1;
-      panel.style.transform = `translateY(${(1 - p) * panel.offsetHeight}px)`;
-      panel.style.filter = '';
-    } else {
-      panel.style.opacity = c;
-      panel.style.transform = `scale(${0.82 + 0.18 * p})`;
-      panel.style.filter = c < 1 ? `blur(${(1 - c) * 10}px)` : ''; // materialize, not just fade
-    }
-  }
-
-  function animateSheet(to, velocity = 0, damping = 1) {
-    stopSheet?.();
-    return new Promise((done) => {
-      stopSheet = spring(sheetP, to, {
-        damping: reduceMotion.matches ? 1 : damping,
-        response: reduceMotion.matches ? 0.25 : asSheet.matches ? 0.38 : 0.34,
-        velocity: reduceMotion.matches ? 0 : velocity,
-        onUpdate: setSheet,
-        onDone: done,
-      });
-    });
-  }
-
-  // Never resolves if the sheet is grabbed again on the way out, which is what keeps it open.
-  async function closeSheet(velocity = 0) {
-    await animateSheet(0, velocity);
-    dlg.close();
-  }
-
   function pickMyInstants(trigger) {
     return new Promise((resolve) => {
       miResolve = resolve;
-      dlg.showModal();
-      panel.style.transform = 'none';
-      const r = trigger?.getBoundingClientRect(), pr = panel.getBoundingClientRect();
-      panel.style.transformOrigin = r && !asSheet.matches ? `${r.left + r.width / 2 - pr.left}px ${r.top + r.height / 2 - pr.top}px` : '';
-      setSheet(0);
-      animateSheet(1);
+      miSheet.open(trigger);
       if (!asSheet.matches) $('miQuery').focus();
       miTab(me.favorites.length ? 'favs' : 'trending');
     });
   }
-  dlg.addEventListener('close', () => {
-    stopSheet?.();
+  miSheet.onClose = () => {
     previewAudio?.pause();
     miResolve?.(null);
     miResolve = null;
-  });
-  dlg.addEventListener('cancel', (e) => { e.preventDefault(); closeSheet(); });
-  scrim.addEventListener('click', () => closeSheet());
-  $('miClose').addEventListener('click', () => closeSheet());
-
-  // Drag the sheet by its header: 1:1 from where it was grabbed, rubber-band upwards, flick to dismiss.
-  $('miGrab').addEventListener('pointerdown', (e) => {
-    if (!asSheet.matches || reduceMotion.matches || e.button !== 0 || e.target.closest('button')) return;
-    stopSheet?.();
-    const grab = e.currentTarget, h = panel.offsetHeight;
-    const startOffset = (1 - sheetP) * h, startY = e.clientY;
-    let offset = startOffset;
-    const hist = [{ y: e.clientY, t: e.timeStamp }];
-    grab.setPointerCapture(e.pointerId);
-    const move = (ev) => {
-      hist.push({ y: ev.clientY, t: ev.timeStamp });
-      if (hist.length > 6) hist.shift();
-      offset = startOffset + ev.clientY - startY;
-      setSheet(1 - (offset < 0 ? rubberband(offset, h) : offset) / h);
-    };
-    const up = () => {
-      grab.removeEventListener('pointermove', move);
-      grab.removeEventListener('pointerup', up);
-      grab.removeEventListener('pointercancel', up);
-      const a = hist[0], b = hist[hist.length - 1];
-      const vy = b.t > a.t ? ((b.y - a.y) / (b.t - a.t)) * 1000 : 0; // px/s, + is downwards
-      const pVelocity = -vy / h;
-      if (Math.max(offset, 0) + project(vy) > h * 0.4) closeSheet(pVelocity);
-      else animateSheet(1, pVelocity, 0.8); // a flick carried momentum, so allow a little bounce
-    };
-    grab.addEventListener('pointermove', move);
-    grab.addEventListener('pointerup', up);
-    grab.addEventListener('pointercancel', up);
-  });
+  };
   $('miTrending').addEventListener('click', () => miTab('trending'));
   $('miFavs').addEventListener('click', () => miTab('favs'));
   $('miSearch').addEventListener('submit', (e) => {
@@ -761,7 +917,7 @@
     const resolve = miResolve;
     miResolve = null;
     resolve?.(r);
-    closeSheet();
+    miSheet.close();
   });
 
   function pickFile() {
@@ -784,14 +940,16 @@
     $('app').hidden = true;
   }
 
-  // Long lists show the first few with a "Show all" toggle so the page doesn't grow forever.
-  const LIST_PREVIEW = 3;
-  let showAllLogs = false, showAllAlerts = false, revealFrom = -1;
+  // Many rewards would push everything else down, so show a few with a "Show all" toggle.
+  const LIST_PREVIEW = 6;
+  let showAllAlerts = false, revealFrom = -1;
   function moreButton(btn, total, all) {
     btn.hidden = total <= LIST_PREVIEW;
     btn.textContent = all ? t('Show less') : t(`Show all (${total})`);
     btn.setAttribute('aria-expanded', all);
   }
+
+  const timeOf = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   let firstRender = true, lastLogT = 0, lastOn = null;
   function render(state, force) {
@@ -810,18 +968,20 @@
     if (state.user.avatar) $('avatar').src = state.user.avatar; else $('avatar').removeAttribute('src');
     reveal($('bannerRelogin'), state.needsRelogin);
     reveal($('bannerRepair'), !state.needsRelogin && !state.subscribed);
-    reveal($('bannerMuted'), state.muted);
 
     const on = state.overlays > 0;
     $('obsStatus').className = 'status ' + (on ? 'on' : 'off');
     if (lastOn !== null && lastOn !== on) replay($('obsStatus'), 'pop');
+    if (lastOn === null) $('obsHelp').open = !on; // first visit: show how to set it up
     lastOn = on;
     $('obsStatus').textContent = t(on ? 'OBS connected' : 'OBS not connected');
     $('overlayUrl').textContent = state.overlayUrl.replace(state.overlayKey, '•'.repeat(12));
 
-    $('muteBtn').textContent = t(state.muted ? 'Sounds are muted – unmute' : 'Mute all sounds');
+    $('muteBtn').textContent = state.muted ? '🔇 ' + t('Muted') : '🔊 ' + t('Mute');
+    $('muteBtn').title = t(state.muted ? 'Sounds are muted – unmute' : 'Mute all sounds');
     $('muteBtn').classList.toggle('muted', state.muted);
     $('muteBtn').setAttribute('aria-pressed', state.muted);
+    $('statusCard').classList.toggle('is-muted', state.muted);
 
     if (!draggingVolume) {
       $('masterVolume').value = state.masterVolume;
@@ -836,20 +996,22 @@
     }
 
     const logs = state.logs.slice().reverse();
-    const shownLogs = showAllLogs ? logs : logs.slice(0, LIST_PREVIEW);
-    moreButton($('logMore'), logs.length, showAllLogs);
+    const latest = logs[0];
+    const changed = latest && !firstRender && latest.t > lastLogT;
+    $('lastActivity').innerHTML = latest ? `<time>${timeOf(latest.t)}</time> ${esc(t(latest.msg))}` : esc(t('Redemptions will show up here.'));
+    if (changed) replay($('lastActivity'), 'enter');
     $('log').innerHTML = logs.length
-      ? shownLogs.map((l, i) => `<li class="${(!firstRender && l.t > lastLogT) || i >= revealFrom && revealFrom >= 0 ? 'enter' : ''}" style="--i:${Math.max(0, i - revealFrom)}"><time>${new Date(l.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</time><span>${esc(t(l.msg))}</span></li>`).join('')
+      ? logs.map((l) => `<li class="${!firstRender && l.t > lastLogT ? 'enter' : ''}"><time>${timeOf(l.t)}</time><span>${esc(t(l.msg))}</span></li>`).join('')
       : `<li class="muted">${esc(t('Redemptions will show up here.'))}</li>`;
-
     lastLogT = Math.max(lastLogT, ...state.logs.map((l) => l.t));
 
     const key = JSON.stringify(state.alerts);
-    if (force || (key !== alertsKey && !editingId && !draggingVolume && !document.querySelector('.menu-wrap.open'))) {
+    if (force || key !== alertsKey) {
       alertsKey = key;
       renderAlerts();
+      if ($('editSheet').open) fillEdit();
     }
-    $('addBtn').disabled = state.alerts.length >= state.limits.maxAlerts;
+    $('addOpen').disabled = state.alerts.length >= state.limits.maxAlerts;
     firstRender = false;
   }
 
@@ -869,52 +1031,29 @@
     knownAlertIds = new Set(list.map((a) => a.id));
     if (!list.length) {
       $('alertsMore').hidden = true;
-      $('alerts').innerHTML = `<div class="empty">${esc(t('No sound rewards yet. Add your first one below.'))}</div>`;
+      $('alerts').innerHTML = `<div class="empty-state">
+        <div class="empty-icon" aria-hidden="true">🔊</div>
+        <h3>${esc(t('No sound rewards yet'))}</h3>
+        <p>${esc(t('Add a reward and pick a sound. When a viewer redeems it on Kick, the sound plays in OBS.'))}</p>
+        <button class="primary" type="button" data-act="add">${esc(t('Add your first reward'))}</button></div>`;
       return;
     }
     const shown = showAllAlerts ? list : list.slice(0, LIST_PREVIEW);
     moreButton($('alertsMore'), list.length, showAllAlerts);
     $('alerts').innerHTML = shown.map((a, i) => {
-      const anim = isNew(a) ? 'enter' : revealFrom >= 0 && i >= revealFrom ? 'enter" style="--i:' + (i - revealFrom) : '';
-      if (a.id === editingId) {
-        return `<div class="alert" data-id="${a.id}">
-          <div class="edit">
-            <div><label for="et-${a.id}">${t('Reward name')}</label><input id="et-${a.id}" type="text" maxlength="50" value="${esc(a.title)}"></div>
-            <div><label for="ec-${a.id}">${t('Cost')}</label><input id="ec-${a.id}" type="number" min="1" step="1" value="${esc(a.cost)}"></div>
-            <button class="primary" data-act="save">${t('Save')}</button>
-            <button class="ghost" data-act="cancel">${t('Cancel')}</button>
-            <div class="color-field">
-              <span class="field-label" id="cl-${a.id}">${t('Color on Kick')}</span>
-              <div class="swatches" role="radiogroup" aria-labelledby="cl-${a.id}">${swatchesHtml('c-' + a.id, a.color || DEFAULT_COLOR)}</div>
-            </div>
-          </div></div>`;
-      }
-      const vol = Math.round((a.volume ?? 1) * 100);
-      return `<div class="alert ${a.enabled === false ? 'off' : ''} ${anim}" data-id="${a.id}">
-        <div>
-          <div class="title">${a.color ? `<span class="dot" style="--c:${esc(a.color)}" aria-hidden="true"></span>` : ''}${esc(a.title)}</div>
-          <div class="meta">${esc(a.cost)} ${t('points')}${a.tts ? ' · 🗣️ ' + t('text-to-speech') : ''}${a.enabled === false ? ' · ' + t('paused') : ''}${a.managed ? '' : ' · ' + t('created in the Kick dashboard')}</div>
+      const anim = isNew(a) ? ' enter' : revealFrom >= 0 && i >= revealFrom ? ` enter" style="--i:${i - revealFrom}` : '';
+      const tags = [a.tts ? '🗣️ ' + t('Reads messages') : '', a.enabled === false ? t('Paused') : '', a.managed ? '' : t('Kick dashboard')].filter(Boolean);
+      return `<article class="reward${a.enabled === false ? ' off' : ''}${anim}" data-id="${a.id}">
+        <button class="reward-main" type="button" data-act="edit" aria-label="${esc(t('Edit'))}: ${esc(a.title)}">
+          <span class="reward-title"><span class="dot" style="--c:${esc(a.color || 'var(--muted)')}" aria-hidden="true"></span>${esc(a.title)}</span>
+          <span class="reward-cost">${esc(a.cost)} ${esc(t('points'))}</span>
+          ${tags.length ? `<span class="reward-tags">${tags.map((x) => `<span class="tag">${esc(x)}</span>`).join('')}</span>` : ''}
+        </button>
+        <div class="reward-actions">
+          <button class="small" type="button" data-act="test">▶ ${esc(t('Test'))}</button>
+          <button class="icon ghost" type="button" data-act="edit" aria-label="${esc(t('Edit'))}">•••</button>
         </div>
-        <div class="actions">
-          <button class="small" data-act="test" title="${t('Play in OBS')}">${t('Test')}</button>
-          ${a.file ? `<button class="icon" data-act="preview" title="${t('Listen here')}" aria-label="${t('Listen here')}">▶</button>` : ''}
-          <div class="menu-wrap">
-            <button class="icon" data-act="menu" aria-haspopup="menu" aria-expanded="false" aria-label="${t('More')}">•••</button>
-            <div class="menu" role="menu">
-              <button role="menuitem" data-act="sound">${t('Change sound')}</button>
-              <button role="menuitem" data-act="mi">${t('Change sound from myinstants.com')}</button>
-              <button role="menuitem" data-act="tts">🗣️ ${t(a.tts ? 'Text-to-speech on' : 'Text-to-speech off')}</button>
-              ${a.managed ? `<button role="menuitem" data-act="edit">${t('Edit')}</button>
-              <button role="menuitem" data-act="toggle">${t(a.enabled === false ? 'Resume' : 'Pause')}</button>` : ''}
-              <hr>
-              <button role="menuitem" class="danger" data-act="delete">${t('Delete')}</button>
-            </div>
-          </div>
-        </div>
-        <div class="vol"><label for="v-${a.id}" style="margin:0">${t('Volume')}</label>
-          <input id="v-${a.id}" type="range" min="0" max="1" step="0.05" value="${a.volume ?? 1}" data-act="volume">
-          <span data-volval>${vol}%</span></div>
-      </div>`;
+      </article>`;
     }).join('');
   }
 
@@ -939,12 +1078,7 @@
     }
   }
 
-  const newPick = bindFilePick('newSoundPick');
-  const linkPick = bindFilePick('linkSoundPick');
-  $('newTts').addEventListener('change', (e) => newPick.setOptional(e.target.checked));
-  $('linkTts').addEventListener('change', (e) => linkPick.setOptional(e.target.checked));
-
-  // Reward color pickers (new reward form and the edit row): preset swatches plus a custom color as the last one.
+  // Reward color pickers: preset swatches plus a custom color as the last one.
   document.addEventListener('change', (e) => {
     if (e.target.matches('.swatches input[type=radio]')) e.target.closest('.swatches').querySelector('.custom').classList.remove('on');
   });
@@ -955,104 +1089,151 @@
     e.target.parentElement.classList.add('on');
     e.target.parentElement.style.setProperty('--c', e.target.value);
   });
-  const resetColor = () => { $('newSwatches').innerHTML = swatchesHtml('newColor'); };
+
+  // New reward sheet: a new reward made here, or a sound added to one that already exists on Kick.
+  const newPick = bindFilePick('newSoundPick');
+  let addMode = 'new';
+  function setAddMode(mode) {
+    addMode = mode;
+    for (const b of $('addMode').querySelectorAll('button')) b.classList.toggle('on', b.dataset.mode === mode);
+    movePill($('addMode'));
+    for (const pane of $('addForm').querySelectorAll('[data-pane]')) pane.hidden = pane.dataset.pane !== mode;
+    if (mode === 'kick') loadKickRewards();
+  }
+  $('addMode').addEventListener('click', (e) => { const b = e.target.closest('[data-mode]'); if (b) setAddMode(b.dataset.mode); });
+  function openAdd(trigger) {
+    $('addForm').reset();
+    $('newSwatches').innerHTML = swatchesHtml('newColor');
+    newPick.reset();
+    addSheet.open(trigger);
+    setAddMode('new');
+    if (!asSheet.matches) $('newTitle').focus();
+  }
+  $('addOpen').addEventListener('click', (e) => openAdd(e.currentTarget));
 
   $('addForm').addEventListener('submit', (e) => {
     e.preventDefault();
     busy($('addBtn'), async () => {
-      const sound = await newPick.sound(me.limits.maxSoundMb);
-      const title = $('newTitle').value.trim();
+      const tts = $('newTts').checked;
+      let body;
+      if (addMode === 'kick') {
+        if (!$('linkReward').value) throw new Error('Choose a reward');
+        body = { rewardId: $('linkReward').value };
+      } else {
+        const title = $('newTitle').value.trim();
+        if (!title) throw new Error('Reward name cannot be empty');
+        body = { title, cost: Number($('newCost').value), color: swatchValue($('newSwatches')) };
+      }
+      body.tts = tts;
+      body.sound = await newPick.sound(me.limits.maxSoundMb, tts);
       showAllAlerts = true;
-      render(await api('/api/alerts', 'POST', { title, cost: Number($('newCost').value), sound, tts: $('newTts').checked, color: swatchValue($('newSwatches')) }), true);
-      $('newTitle').value = '';
-      resetColor();
-      $('newTts').checked = false;
-      newPick.setOptional(false);
-      newPick.reset();
-      toast(`"${title}" added and created on Kick`);
+      const state = await api('/api/alerts', 'POST', body);
+      const added = state.alerts[state.alerts.length - 1];
+      render(state, true);
+      addSheet.close();
+      toast(addMode === 'kick' ? 'Sound attached' : `"${added.title}" added and created on Kick`);
     });
   });
 
-  $('linkDetails').addEventListener('toggle', () => { if ($('linkDetails').open) loadKickRewards(); });
+  // Edit sheet: everything about one reward in one place.
+  let editId = null;
+  const editAlert = () => me.alerts.find((a) => a.id === editId);
+  function fillEdit(full) {
+    const a = editAlert();
+    if (!a) return editSheet.close();
+    $('editTitle').textContent = a.title;
+    $('editKickFields').hidden = !a.managed;
+    $('editKickNote').hidden = a.managed;
+    $('editPausedRow').hidden = !a.managed;
+    if (full) {
+      $('editName').value = a.title;
+      $('editCost').value = a.cost;
+      $('editSwatches').innerHTML = swatchesHtml('editColor', a.color || DEFAULT_COLOR);
+    }
+    $('editSoundName').textContent = a.file ? `${t('Sound file')} · ${a.file.split('.').pop().toUpperCase()}` : t('No sound (text-to-speech only)');
+    $('editPreview').hidden = !a.file;
+    if (document.activeElement !== $('editVolume')) {
+      $('editVolume').value = a.volume ?? 1;
+      $('editVolVal').textContent = Math.round((a.volume ?? 1) * 100) + '%';
+    }
+    $('editTts').checked = Boolean(a.tts);
+    $('editPaused').checked = a.enabled === false;
+  }
+  function openEdit(id, trigger) {
+    editId = id;
+    fillEdit(true);
+    editSheet.open(trigger);
+  }
+  editSheet.onClose = () => { previewAudio?.pause(); editId = null; };
 
-  $('linkForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    busy($('linkBtn'), async () => {
-      if (!$('linkReward').value) throw new Error('Choose a reward');
-      const sound = await linkPick.sound(me.limits.maxSoundMb);
-      showAllAlerts = true;
-      render(await api('/api/alerts', 'POST', { rewardId: $('linkReward').value, sound, tts: $('linkTts').checked }), true);
-      $('linkTts').checked = false;
-      linkPick.setOptional(false);
-      linkPick.reset();
-      loadKickRewards();
-      toast('Sound attached');
+  const patchEdit = (body, msg) => api(`/api/alerts/${editId}`, 'PATCH', body).then((state) => { render(state, true); if (msg) toast(msg); });
+
+  $('editSave').addEventListener('click', (e) => busy(e.currentTarget, () =>
+    patchEdit({ title: $('editName').value, cost: Number($('editCost').value), color: swatchValue($('editSwatches')) }, 'Saved')));
+  $('editBody').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('#editName, #editCost')) $('editSave').click(); });
+  $('editPreview').addEventListener('click', () => {
+    const a = editAlert();
+    previewAudio?.pause();
+    previewAudio = new Audio(`/media/${me.overlayKey}/${encodeURIComponent(a.file)}`);
+    previewAudio.volume = (a.volume ?? 1) * me.masterVolume;
+    previewAudio.play();
+  });
+  $('editFile').addEventListener('click', (e) => busy(e.currentTarget, async () => {
+    const file = await pickFile();
+    if (!file) return;
+    await patchEdit({ sound: await readFile(file, me.limits.maxSoundMb) }, 'Sound changed');
+  }));
+  $('editMi').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const r = await pickMyInstants(btn);
+    if (r) busy(btn, () => patchEdit({ sound: { url: r.url } }, `Sound changed to "${r.title}"`));
+  });
+  $('editVolume').addEventListener('input', (e) => { $('editVolVal').textContent = Math.round(e.target.value * 100) + '%'; });
+  $('editVolume').addEventListener('change', (e) => patchEdit({ volume: Number(e.target.value) }).catch((err) => toast(err.message, true)));
+  $('editTts').addEventListener('change', (e) => patchEdit({ tts: e.target.checked }).catch((err) => { e.target.checked = !e.target.checked; toast(err.message, true); }));
+  $('editPaused').addEventListener('change', (e) => patchEdit({ enabled: !e.target.checked }).catch((err) => { e.target.checked = !e.target.checked; toast(err.message, true); }));
+  $('editTest').addEventListener('click', (e) => busy(e.currentTarget, () => testAlert(editAlert())));
+  $('editDelete').addEventListener('click', (e) => {
+    const a = editAlert();
+    const msg = a.managed ? `Delete "${a.title}"? The reward will also be removed from your Kick channel.` : `Remove the sound from "${a.title}"? The reward stays on Kick.`;
+    if (!confirm(t(msg))) return;
+    busy(e.currentTarget, async () => {
+      const state = await api(`/api/alerts/${a.id}`, 'DELETE');
+      await editSheet.close();
+      const card = $('alerts').querySelector(`[data-id="${a.id}"]`);
+      if (card && !reduceMotion.matches) {
+        await card.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.92)' }], { duration: 260, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'forwards' }).finished;
+      }
+      render(state, true);
+      toast('Deleted');
     });
   });
 
-  $('alerts').addEventListener('click', async (e) => {
+  async function testAlert(a) {
+    const r = await api(`/api/alerts/${a.id}/test`, 'POST');
+    if (!r.overlays) toast('OBS is not connected. Add the link to OBS as a browser source.', true);
+    else toast(`Playing "${a.title}" in OBS`);
+  }
+
+  $('alerts').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-act]');
     if (!btn) return;
-    const id = btn.closest('.alert').dataset.id;
-    const a = me.alerts.find((x) => x.id === id);
-    const act = btn.dataset.act;
-    const menuBtn = btn.closest('.alert').querySelector('[data-act=menu]');
-
-    if (act === 'menu') return toggleMenu(btn);
-    closeMenus();
-
-    if (act === 'preview') {
-      previewAudio?.pause();
-      previewAudio = new Audio(`/media/${me.overlayKey}/${encodeURIComponent(a.file)}`);
-      previewAudio.volume = (a.volume ?? 1) * me.masterVolume;
-      previewAudio.play();
-      return;
-    }
-    if (act === 'edit') { editingId = id; renderAlerts(); $(`et-${id}`).focus(); return; }
-    if (act === 'cancel') { editingId = null; renderAlerts(); return; }
-
-    busy(btn, async () => {
-      if (act === 'test') {
-        const r = await api(`/api/alerts/${id}/test`, 'POST');
-        if (!r.overlays) toast('OBS is not connected. Add the link to OBS as a browser source.', true);
-        else toast(`Playing "${a.title}" in OBS`);
-      } else if (act === 'save') {
-        const color = swatchValue(btn.closest('.alert').querySelector('.swatches'));
-        const state = await api(`/api/alerts/${id}`, 'PATCH', { title: $(`et-${id}`).value, cost: Number($(`ec-${id}`).value), color });
-        editingId = null;
-        render(state, true);
-        toast('Saved');
-      } else if (act === 'toggle') {
-        render(await api(`/api/alerts/${id}`, 'PATCH', { enabled: a.enabled === false }), true);
-      } else if (act === 'tts') {
-        render(await api(`/api/alerts/${id}`, 'PATCH', { tts: !a.tts }), true);
-      } else if (act === 'sound') {
-        const file = await pickFile();
-        if (!file) return;
-        const sound = await readFile(file, me.limits.maxSoundMb);
-        render(await api(`/api/alerts/${id}`, 'PATCH', { sound }), true);
-        toast('Sound changed');
-      } else if (act === 'mi') {
-        const r = await pickMyInstants(menuBtn);
-        if (!r) return;
-        render(await api(`/api/alerts/${id}`, 'PATCH', { sound: { url: r.url } }), true);
-        toast(`Sound changed to "${r.title}"`);
-      } else if (act === 'delete') {
-        const msg = a.managed ? `Delete "${a.title}"? The reward will also be removed from your Kick channel.` : `Remove the sound from "${a.title}"? The reward stays on Kick.`;
-        if (!confirm(t(msg))) return;
-        const state = await api(`/api/alerts/${id}`, 'DELETE');
-        const row = btn.closest('.alert');
-        if (!reduceMotion.matches) {
-          await row.animate(
-            [{ opacity: 1, transform: 'none', height: row.offsetHeight + 'px' }, { opacity: 0, transform: 'scale(.96)', height: '0px', paddingTop: '0px', paddingBottom: '0px', marginBottom: '-.5rem' }],
-            { duration: 340, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'forwards' },
-          ).finished;
-        }
-        render(state, true);
-        toast('Deleted');
-      }
-    });
+    if (btn.dataset.act === 'add') return openAdd(btn);
+    const id = btn.closest('[data-id]').dataset.id;
+    if (btn.dataset.act === 'edit') return openEdit(id, btn);
+    if (btn.dataset.act === 'test') busy(btn, () => testAlert(me.alerts.find((x) => x.id === id)));
   });
+
+  $('alertsMore').addEventListener('click', () => {
+    showAllAlerts = !showAllAlerts;
+    revealFrom = showAllAlerts ? LIST_PREVIEW : -1;
+    renderAlerts();
+    revealFrom = -1;
+    if (!showAllAlerts) $('alerts').closest('section').scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth', block: 'start' });
+  });
+
+  $('settingsOpen').addEventListener('click', (e) => settingsSheet.open(e.currentTarget));
+  $('activityOpen').addEventListener('click', (e) => activitySheet.open(e.currentTarget));
 
   function toggleMenu(btn) {
     const wrap = btn.parentElement, open = !wrap.classList.contains('open');
@@ -1068,6 +1249,7 @@
       w.querySelector('[data-act=menu]').setAttribute('aria-expanded', 'false');
     });
   }
+  for (const btn of document.querySelectorAll('.statusbar [data-act=menu]')) btn.addEventListener('click', () => toggleMenu(btn));
   document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.menu-wrap')) closeMenus(); });
   document.addEventListener('keydown', (e) => {
     const wrap = document.querySelector('.menu-wrap.open');
@@ -1081,41 +1263,8 @@
     }
   });
 
-  $('logMore').addEventListener('click', () => {
-    showAllLogs = !showAllLogs;
-    revealFrom = showAllLogs ? LIST_PREVIEW : -1;
-    render(me, false);
-    revealFrom = -1;
-  });
-  $('alertsMore').addEventListener('click', () => {
-    showAllAlerts = !showAllAlerts;
-    editingId = null;
-    revealFrom = showAllAlerts ? LIST_PREVIEW : -1;
-    renderAlerts();
-    revealFrom = -1;
-    if (!showAllAlerts) $('alerts').closest('section').scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth', block: 'start' });
-  });
-
   const header = document.querySelector('header.top');
   addEventListener('scroll', () => header.classList.toggle('scrolled', scrollY > 4), { passive: true });
-
-  $('alerts').addEventListener('input', (e) => {
-    if (e.target.dataset.act !== 'volume') return;
-    draggingVolume = true;
-    e.target.parentElement.querySelector('[data-volval]').textContent = Math.round(e.target.value * 100) + '%';
-  });
-  $('alerts').addEventListener('change', async (e) => {
-    if (e.target.dataset.act !== 'volume') return;
-    const id = e.target.closest('.alert').dataset.id;
-    try { render(await api(`/api/alerts/${id}`, 'PATCH', { volume: Number(e.target.value) }), false); }
-    catch (err) { toast(err.message, true); }
-    finally { draggingVolume = false; }
-  });
-  $('alerts').addEventListener('keydown', (e) => {
-    if (!editingId) return;
-    if (e.key === 'Enter') e.target.closest('.alert')?.querySelector('[data-act=save]')?.click();
-    if (e.key === 'Escape') { editingId = null; renderAlerts(); }
-  });
 
   $('masterVolume').addEventListener('input', (e) => {
     draggingVolume = true;
@@ -1137,15 +1286,18 @@
 
   $('muteBtn').addEventListener('click', (e) => busy(e.currentTarget, async () => {
     const state = await api('/api/settings', 'POST', { muted: !me.muted });
-    replay($('muteBtn'), 'pop');
     toast(state.muted ? 'All sounds muted' : 'Sounds unmuted');
     render(state, false);
+    replay($('muteBtn'), 'pop');
   }));
   for (const [btnId, path, msg] of [['skipBtn', '/api/overlay/skip', 'Skipped'], ['clearBtn', '/api/overlay/clear', 'Queue cleared']]) {
-    $(btnId).addEventListener('click', (e) => busy(e.currentTarget, async () => {
-      const r = await api(path, 'POST');
-      toast(r.overlays ? msg : 'OBS is not connected. Add the link to OBS as a browser source.', !r.overlays);
-    }));
+    $(btnId).addEventListener('click', async () => {
+      closeMenus();
+      try {
+        const r = await api(path, 'POST');
+        toast(r.overlays ? msg : 'OBS is not connected. Add the link to OBS as a browser source.', !r.overlays);
+      } catch (err) { toast(err.message, true); }
+    });
   }
 
   $('copyOverlay').addEventListener('click', async () => {
@@ -1157,7 +1309,7 @@
       b.textContent = '✓ ' + t('Copied');
       replay(b, 'pop');
       clearTimeout(b.t);
-      b.t = setTimeout(() => { b.textContent = t('Copy'); b.style.minWidth = ''; }, 1600);
+      b.t = setTimeout(() => { b.textContent = t('Copy OBS link'); b.style.minWidth = ''; }, 1600);
     } catch {
       prompt(t('Copy the link:'), me.overlayUrl);
     }
