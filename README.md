@@ -256,6 +256,7 @@ All settings are environment variables, read from `.env`.
 | `MAX_SOUND_MB` | Max sound file size, default `5`; also applies to myinstants sounds |
 | `MAX_ALERTS` | Max sound rewards per streamer, default `30` (Kick's limit is 50) |
 | `SESSION_SECRET` | Cookie signing secret; generated and stored in the data directory if empty |
+| `OVERLAY_SECRET` | Secret OBS links are derived from; generated and stored in the data directory if empty. Changing it changes every OBS link |
 | `ADMIN_KICK_IDS` | Kick user ids that can open the admin panel, comma-separated |
 
 Everything a streamer sets in the dashboard (rewards, volumes, text-to-speech, banned words, favorites, mute) is stored per streamer in `DATA_DIR/users/<id>.json`. Site-wide admin settings are in `DATA_DIR/settings.json`. Language and theme are stored in the browser.
@@ -315,7 +316,7 @@ Set the `https://….trycloudflare.com` address as `PUBLIC_URL`, update the Redi
 
 - Webhooks are verified against Kick's public key (RSA-SHA256). Unsigned or tampered requests are rejected.
 - Sessions are HMAC-signed, `HttpOnly`, `SameSite=Lax` cookies. State-changing API calls also require a same-origin `Origin` header.
-- Overlay URLs contain a random 144-bit key and can be regenerated from the dashboard.
+- Overlay URLs contain a 144-bit key derived from `OVERLAY_SECRET` and the Kick user id, so a streamer who deletes their account and signs up again gets the same link. Regenerating it from the dashboard kills the old link for good; only the regeneration count is kept (`DATA_DIR/overlay-rotations.json`, about 14 bytes per streamer who ever regenerated).
 - Kick tokens are stored server-side only, in `DATA_DIR/users/*.json`. Protect that directory and `.env`.
 - The server only downloads sounds from `https://www.myinstants.com/media/sounds/`, without following redirects, so the picker can't be used to make it fetch other addresses.
 - Reward colors must be `#rrggbb`; anything else is ignored.

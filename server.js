@@ -50,7 +50,9 @@ if (!process.env.KICK_CLIENT_ID || !process.env.KICK_CLIENT_SECRET) {
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 const SESSION_SECRET = process.env.SESSION_SECRET || persistentSecret(path.join(DATA_DIR, 'session-secret'));
-const store = createStore(DATA_DIR);
+// Separate from SESSION_SECRET: changing it would change every streamer's OBS link.
+const OVERLAY_SECRET = process.env.OVERLAY_SECRET || persistentSecret(path.join(DATA_DIR, 'overlay-secret'));
+const store = createStore(DATA_DIR, OVERLAY_SECRET);
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const siteSettings = { bannedWords: [], signupsClosed: false, ...readJsonFile(SETTINGS_FILE) };
 const kick = createKick({
