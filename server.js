@@ -465,6 +465,10 @@ function sameOrigin(req) {
   }
 }
 
+// A streamer's own limit (set by an admin, 0 = none) wins over the site-wide one.
+const quotaMb = (user) => user.quotaMb ?? siteSettings.quotaMb;
+const validQuota = (v) => Math.max(0, Math.min(100000, Math.round(Number(v)) || 0));
+
 // Validates base64 audio, writes it into the streamer's folder and returns the file name.
 function saveSound(user, alertId, sound) {
   const ext = path.extname(String(sound?.name || '')).toLowerCase();
@@ -472,8 +476,8 @@ function saveSound(user, alertId, sound) {
   const buf = Buffer.from(String(sound.data || ''), 'base64');
   if (!buf.length) throw new HttpError(400, 'Sound file is empty');
   if (buf.length > MAX_SOUND_MB * 1024 * 1024) throw new HttpError(413, `Sound file can be at most ${MAX_SOUND_MB} MB`);
-  const quota = siteSettings.quotaMb * 1024 * 1024;
-  if (quota && dirSize(store.soundDir(user)) + buf.length > quota) throw new HttpError(413, `Your sound storage is full (${siteSettings.quotaMb} MB). Delete some sounds to add new ones.`);
+  const limitMb = quotaMb(user);
+  if (limitMb && dirSize(store.soundDir(user)) + buf.length > limitMb * 1048576) throw new HttpError(413, `Your sound storage is full (${limitMb} MB). Delete some sounds to add new ones.`);
   const name = `${alertId}-${crypto.randomBytes(4).toString('hex')}${ext}`;
   fs.writeFileSync(path.join(store.soundDir(user), name), buf);
   return name;
@@ -604,7 +608,7 @@ function meState(user) {
     publicPage: Boolean(user.publicPage),
     legalOk: user.legal?.version === LEGAL_VERSION,
     announcement: siteSettings.announcement,
-    storage: { used: dirSize(store.soundDir(user)), quota: siteSettings.quotaMb * 1024 * 1024 },
+    storage: { used: dirSize(store.soundDir(user)), quota: quotaMb(user) * 1048576 },
     publicUrl: `${PUBLIC_URL}/c/${encodeURIComponent(user.name || '')}`,
     limits: { maxSoundMb: MAX_SOUND_MB, maxAlerts: MAX_ALERTS, maxPool: MAX_POOL },
   };
@@ -951,6 +955,7 @@ function adminState() {
       connected: Boolean(u.tokens && u.subscription),
       admin: isAdmin(u),
       legalAt: u.legal?.version === LEGAL_VERSION ? u.legal.at : null,
+      quotaMb: u.quotaMb ?? null,
     }))
     .sort((a, b) => (b.lastRedemption || 0) - (a.lastRedemption || 0) || String(b.createdAt).localeCompare(String(a.createdAt)));
   const system = {
@@ -972,7 +977,7 @@ async function handleAdmin(req, res, admin, p) {
     if (b.bannedWords !== undefined) siteSettings.bannedWords = parseWordList(b.bannedWords);
     if (b.signupsClosed !== undefined) siteSettings.signupsClosed = Boolean(b.signupsClosed);
     if (b.announcement !== undefined) siteSettings.announcement = String(b.announcement).trim().slice(0, 500);
-    if (b.quotaMb !== undefined) siteSettings.quotaMb = Math.max(0, Math.min(100000, Math.round(Number(b.quotaMb)) || 0));
+    if (b.quotaMb !== undefined) siteSettings.quotaMb = validQuota(b.quotaMb);
     saveSiteSettings();
     console.log(`Admin ${admin.name}: site settings changed`);
     return sendJson(res, 200, adminState());
@@ -1012,6 +1017,13 @@ async function handleAdmin(req, res, admin, p) {
 
   if (um && !um[2] && m === 'PATCH') {
     const b = await readJson(req);
+    if (b.quotaMb !== undefined) {
+      // null or '' goes back to the site-wide limit
+      if (b.quotaMb === null || b.quotaMb === '') delete target.quotaMb;
+      else target.quotaMb = validQuota(b.quotaMb);
+      store.save(target);
+      console.log(`Admin ${admin.name}: storage limit of ${target.name} set to ${target.quotaMb ?? 'site default'}`);
+    }
     if (b.banned !== undefined) {
       if (target.id === admin.id) throw new HttpError(400, "You can't ban yourself");
       target.banned = Boolean(b.banned);

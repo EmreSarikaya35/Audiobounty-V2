@@ -115,7 +115,7 @@ Set `ADMIN_KICK_IDS` to your Kick user id (comma-separated for more than one adm
 
 - See every streamer: rewards, disk space used by their sounds, redemption count, last redemption, last login, whether OBS is connected, muted or banned.
 - Post an **announcement** shown at the top of every streamer's dashboard (e.g. planned maintenance); leave it empty to hide it.
-- Set a **sound storage limit** per streamer in MB. Streamers see a usage bar in Settings, and adding a sound that would go over the limit is refused.
+- Set a site-wide **sound storage limit** in MB, and give any streamer their own limit (higher, lower or 0 for none) in their row; an empty field means the site-wide one. Streamers see a usage bar in Settings, and adding a sound that would go over their limit is refused.
 - **Download a full site backup**: everything in `DATA_DIR` (streamers, sounds, settings, secrets, access logs) as one `.tar.gz`. To restore, stop the server and run `tar -xzf audiobounty-site-<date>.tar.gz` so the `data/` folder lands where `DATA_DIR` points. Keep the file safe: it contains the session and OBS link secrets and the IP logs.
 - See whether Kick webhooks are arriving (count, rejected signatures, last one), total sound storage, memory, uptime and the last 20 server errors.
 - **Open** a streamer's dashboard and change anything in it as if they were that streamer. A banner shows whose dashboard is open; changes are marked "(admin)" in their recent activity.

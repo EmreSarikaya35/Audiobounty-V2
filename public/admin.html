@@ -28,6 +28,9 @@
   .user .title { font-weight: 650; letter-spacing: -.01em; overflow-wrap: anywhere; display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
   .user .meta { font-size: .8125rem; color: var(--muted); }
   .user .actions { display: flex; gap: .35rem; flex-wrap: wrap; justify-content: flex-end; }
+  .quota { display: inline-flex; align-items: center; gap: .4rem; margin-top: .35rem; font-size: .8125rem; color: var(--muted); }
+  .quota input { width: 6.5rem; min-height: 2rem; padding: .25rem .5rem; font-size: .8125rem; background: var(--surface); }
+  .quota input.custom { border-color: var(--accent-text); }
   .tag { font-size: .75rem; font-weight: 600; padding: .05rem .5rem; border-radius: 99px; background: var(--fill); color: var(--muted); }
   .tag.red { background: var(--danger-soft); color: var(--danger); }
   .tag.green { background: var(--accent-soft); color: var(--accent-text); }
@@ -108,6 +111,7 @@
       <div>
         <label for="quotaMb" data-i18n>Sound storage per streamer (MB, 0 = no limit)</label>
         <input type="number" id="quotaMb" min="0" step="1">
+        <p class="muted" style="font-size:.8125rem;margin:.35rem 0 0" data-i18n>Applies to everyone without their own limit. Set one in a streamer's row; leave it empty to use this one, 0 means no limit.</p>
       </div>
       <label class="check wide"><input type="checkbox" class="switch" role="switch" id="signupsClosed"> <span data-i18n>Close new sign-ups (existing streamers can still log in)</span></label>
       <div><button class="primary" id="saveSettings" data-i18n>Save</button></div>
@@ -148,9 +152,12 @@
     'No streamers found': 'Yayıncı bulunamadı',
     'Theme': 'Tema',
     'System': 'Sistem',
+    'Storage limit': 'Depolama sınırı',
+    'no limit': 'sınırsız',
     'Announcement for all streamers (leave empty to hide)': 'Tüm yayıncılara duyuru (gizlemek için boş bırak)',
     'e.g. Short maintenance tonight at 03:00': 'örn. Bu gece 03:00\'te kısa bir bakım yapılacak',
     'Sound storage per streamer (MB, 0 = no limit)': 'Yayıncı başına ses depolama (MB, 0 = sınırsız)',
+    'Applies to everyone without their own limit. Set one in a streamer\'s row; leave it empty to use this one, 0 means no limit.': 'Kendi sınırı olmayan herkese uygulanır. Bir yayıncıya özel sınırı onun satırından ver; boş bırakırsan bu sınır geçerli olur, 0 sınırsız demek.',
     'Full site backup': 'Tüm sitenin yedeği',
     'Every streamer, sound, setting, secret and access log in one .tar.gz file. To restore, extract it in the data folder of a new server. Keep it safe: it contains login secrets and IP logs.': 'Tüm yayıncılar, sesler, ayarlar, gizli anahtarlar ve erişim kayıtları tek bir .tar.gz dosyasında. Geri yüklemek için yeni sunucunun data klasörüne çıkar. Güvenli bir yerde sakla: giriş anahtarlarını ve IP kayıtlarını içeriyor.',
     'Download full backup': 'Tüm yedeği indir',
@@ -251,6 +258,8 @@
       ? sys.errors.slice().reverse().map((e) => `<li><time>${esc(when(e.t))}</time><span>${esc(e.msg)}</span></li>`).join('')
       : `<li class="muted">${esc(t('No errors since the server started.'))}</li>`;
 
+    // Don't rebuild the list under a limit being typed.
+    if (document.activeElement?.matches('#users input')) return;
     const q = $('search').value.trim().toLocaleLowerCase('tr');
     const shown = users.filter((u) => !q || String(u.name).toLocaleLowerCase('tr').includes(q) || u.id.includes(q));
     $('users').innerHTML = shown.length ? shown.map((u) => `
@@ -267,6 +276,9 @@
           </div>
           <div class="meta">${esc(t(`${u.alerts} rewards · ${size(u.disk)} · ${u.redemptions} redemptions · last ${when(u.lastRedemption)}`))}</div>
           <div class="meta">${esc(t(`Joined ${day(u.createdAt)} · last login ${when(u.lastLogin)}`))}</div>
+          <label class="quota">${esc(t('Storage limit'))}
+            <input type="number" min="0" step="1" data-quota="${u.id}" value="${u.quotaMb ?? ''}" class="${u.quotaMb === null ? '' : 'custom'}"
+              placeholder="${esc(s.settings.quotaMb ? `${s.settings.quotaMb} MB` : t('no limit'))}" aria-label="${esc(t('Storage limit'))}: ${esc(u.name)}"> MB</label>
         </div>
         <div class="actions">
           <button class="primary small" data-act="view" data-id="${u.id}">${t('Open')}</button>
@@ -311,6 +323,14 @@
   });
 
   $('search').addEventListener('input', () => render(state));
+  $('users').addEventListener('change', async (e) => {
+    const input = e.target.closest('input[data-quota]');
+    if (!input) return;
+    try {
+      render(await api(`/api/admin/users/${input.dataset.quota}`, 'PATCH', { quotaMb: input.value === '' ? null : Number(input.value) }));
+      toast('Saved');
+    } catch (err) { toast(err.message, true); }
+  });
   for (const id of ['globalBanned', 'announcement', 'quotaMb']) $(id).addEventListener('input', () => { settingsDirty = true; });
   $('saveSettings').addEventListener('click', (e) => busy(e.currentTarget, async () => {
     settingsDirty = false;
