@@ -14,6 +14,7 @@ const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replac
 const DATA_DIR = path.resolve(ROOT, process.env.DATA_DIR || 'data');
 const MAX_SOUND_MB = Number(process.env.MAX_SOUND_MB) || 5;
 const MAX_ALERTS = Math.min(Number(process.env.MAX_ALERTS) || 30, 50); // Kick allows at most 50 rewards per channel
+const MAX_POOL = 10; // sounds per reward; one is picked at random each time
 const PUBLIC_DIR = path.join(ROOT, 'public');
 const SECURE_COOKIE = PUBLIC_URL.startsWith('https://');
 const PUBLIC_ORIGIN = new URL(PUBLIC_URL).origin;
@@ -24,7 +25,8 @@ const isAdmin = (user) => Boolean(user && ADMIN_IDS.has(String(user.id)));
 // The landing page carries absolute URLs (canonical, Open Graph, schema) filled from PUBLIC_URL.
 // It's read once at startup, so restart the server after editing public/index.html.
 const INDEX_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8').replaceAll('%PUBLIC_URL%', PUBLIC_URL);
-const ROBOTS_TXT = ['User-agent: *', 'Allow: /', ...['/api/', '/auth/', '/overlay/', '/events/', '/media/', '/tts/'].map((d) => `Disallow: ${d}`), '', `Sitemap: ${PUBLIC_URL}/sitemap.xml`, ''].join('\n');
+const CHANNEL_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'channel.html'), 'utf8');
+const ROBOTS_TXT = ['User-agent: *', 'Allow: /', ...['/api/', '/auth/', '/overlay/', '/events/', '/media/', '/tts/', '/p/'].map((d) => `Disallow: ${d}`), '', `Sitemap: ${PUBLIC_URL}/sitemap.xml`, ''].join('\n');
 
 const AUDIO_TYPES = {
   '.mp3': 'audio/mpeg',
@@ -90,6 +92,13 @@ function persistentSecret(file) {
   return s;
 }
 
+// Shown on the admin page: is Kick still sending webhooks, and what failed lately.
+const health = { startedAt: Date.now(), webhooks: 0, rejected: 0, lastWebhookAt: null, errors: [] };
+function recordError(msg) {
+  health.errors.push({ t: Date.now(), msg: String(msg).slice(0, 300) });
+  if (health.errors.length > 20) health.errors.shift();
+}
+
 // Per-streamer activity, shown as "Recent activity" in the dashboard.
 
 const userLogs = new Map();
@@ -125,7 +134,8 @@ function sendToOverlays(user, payload) {
 }
 
 setInterval(() => {
-  for (const set of overlays.values()) for (const res of set) writeOverlay(set, res, ': ping\n\n');
+  // A real event, not an SSE comment, so the overlay can notice a connection that died without closing.
+  for (const set of overlays.values()) for (const res of set) writeOverlay(set, res, 'data: {"type":"ping"}\n\n');
 }, 25000);
 
 const WEBHOOK_MAX_AGE = 10 * 60 * 1000;
@@ -152,12 +162,40 @@ function isSpam(text) {
   return chars.length >= 6 && Math.max(...counts.values()) / chars.length > 0.5;
 }
 
+const lastPick = new Map(); // alert id -> index played last, so a pool never plays the same sound twice in a row
+function pickSound(alert) {
+  const n = alert.sounds.length;
+  if (!n) return null;
+  let i = Math.floor(Math.random() * n);
+  if (n > 1 && i === lastPick.get(alert.id)) i = (i + 1 + Math.floor(Math.random() * (n - 1))) % n;
+  lastPick.set(alert.id, i);
+  return alert.sounds[i];
+}
+
+const CARD_POSITIONS = ['top', 'center', 'bottom'];
+const CARD_THEMES = ['dark', 'light'];
+const CARD_SIZES = ['s', 'm', 'l'];
+const cardStyle = (user) => ({ position: 'top', theme: 'dark', size: 'm', accent: '#53fc18', ...user.cardStyle });
+
+// What each overlay was told to play, so its queue report (just ids) can be shown in the dashboard.
+const sentItems = new Map(); // userId -> Map qid -> { reward, user, text, color }
+const queueState = new Map(); // userId -> { playing, queue, at }, as last reported by an overlay
+
 function playAlert(user, alert, who, text = '') {
-  if (!alert.file && !text) return false;
+  const sound = pickSound(alert);
+  if (!sound && !text) return false;
   const volume = Math.max(0, Math.min(1, (alert.volume ?? 1) * (user.masterVolume ?? 1)));
+  const qid = crypto.randomBytes(6).toString('hex');
+  if (!sentItems.has(user.id)) sentItems.set(user.id, new Map());
+  const sent = sentItems.get(user.id);
+  sent.set(qid, { reward: alert.title, user: who, text, color: alert.color || null });
+  if (sent.size > 60) sent.delete(sent.keys().next().value);
   sendToOverlays(user, {
     type: 'play',
-    url: alert.file ? `/media/${user.overlayKey}/${encodeURIComponent(alert.file)}` : null,
+    qid,
+    url: sound ? `/media/${user.overlayKey}/${encodeURIComponent(sound.file)}` : null,
+    start: sound?.start || 0,
+    end: sound?.end || 0,
     tts: text ? `/tts/${user.overlayKey}?lang=${user.ttsLang || 'tr'}&text=${encodeURIComponent(text)}` : null,
     text,
     volume,
@@ -166,8 +204,43 @@ function playAlert(user, alert, who, text = '') {
     maxDuration: user.maxDuration || 0,
     normalize: Boolean(user.normalize),
     card: user.card !== false,
+    image: alert.image || null,
+    style: cardStyle(user),
   });
   return true;
+}
+
+function queueView(user) {
+  const q = queueState.get(user.id);
+  if (!q || !overlayCount(user)) return { playing: null, items: [] };
+  const sent = sentItems.get(user.id) || new Map();
+  const item = (qid) => (sent.has(qid) ? { qid, ...sent.get(qid) } : null);
+  return { playing: q.playing ? item(q.playing) : null, items: q.queue.map(item).filter(Boolean) };
+}
+
+// Redemption counts for the stats sheet. Viewers are capped so a busy channel can't grow the file forever.
+function recordStats(user, alert, who) {
+  const s = (user.stats ||= {});
+  s.redemptions = (s.redemptions || 0) + 1;
+  s.points = (s.points || 0) + (Number(alert.cost) || 0);
+  s.lastAt = Date.now();
+  alert.count = (alert.count || 0) + 1;
+  const day = new Date().toISOString().slice(0, 10); // shortcut: UTC days; use the streamer's time zone if the chart looks off by a day
+  s.days ||= {};
+  s.days[day] = (s.days[day] || 0) + 1;
+  for (const d of Object.keys(s.days).sort().slice(0, -30)) delete s.days[d];
+  if (who && who !== '__proto__') {
+    s.viewers ||= {};
+    s.viewers[who] = (s.viewers[who] || 0) + 1;
+    const names = Object.keys(s.viewers);
+    if (names.length > 300) delete s.viewers[names.reduce((a, b) => (s.viewers[a] <= s.viewers[b] ? a : b))];
+  }
+}
+
+function statsView(user) {
+  const s = user.stats || {};
+  const top = Object.entries(s.viewers || {}).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, count]) => ({ name, count }));
+  return { redemptions: s.redemptions || 0, points: s.points || 0, lastAt: s.lastAt || null, days: s.days || {}, viewers: top };
 }
 
 const seen = new Map(); // drops events Kick delivers more than once
@@ -191,6 +264,8 @@ function handleRedemption(evt) {
     user.alerts.find((a) => norm(a.title) === norm(evt.reward?.title));
   if (!alert) return;
   if (alert.enabled === false) return;
+  recordStats(user, alert, who);
+  store.save(user);
   if (user.muted) return ulog(user, `${who || 'Someone'} redeemed "${alert.title}" (muted)`);
   let text = '';
   if (alert.tts) {
@@ -207,8 +282,6 @@ function handleRedemption(evt) {
     }
   }
   if (!playAlert(user, alert, who, text)) return;
-  user.stats = { redemptions: (user.stats?.redemptions || 0) + 1, lastAt: Date.now() };
-  store.save(user);
   ulog(user, `${who || 'Someone'} redeemed "${alert.title}"${overlayCount(user) ? '' : ' (OBS was not connected!)'}`);
 }
 
@@ -258,6 +331,7 @@ function overlayUser(key) {
 function closeOverlays(user) {
   for (const r of overlays.get(user.id) || []) r.end();
   overlays.delete(user.id);
+  queueState.delete(user.id);
 }
 
 // Keeps the account (and the tokens needed to retry) when Kick cleanup fails, unless forced.
@@ -393,18 +467,27 @@ async function fetchMyInstantsSound(url) {
   return { name: decodeURIComponent(path.basename(u.pathname)), data: buf.toString('base64') };
 }
 
-// A sound is either an uploaded file ({ name, data }) or a myinstants pick ({ url }).
+// A sound is either an uploaded file ({ name, data }) or a myinstants pick ({ url, title }).
 const resolveSound = (sound) => (sound?.url ? fetchMyInstantsSound(sound.url) : sound);
 
+// Saves a picked sound and returns the pool entry for it; `title` names it in the dashboard.
+async function newSound(user, alertId, input) {
+  const sound = await resolveSound(input);
+  const name = String(input.title || sound.name || '').trim().replace(/\.[a-z0-9]{2,4}$/i, '').slice(0, 80);
+  return { file: saveSound(user, alertId, sound), name };
+}
+
+const isUsed = (user, file) => user.alerts.some((a) => a.sounds.some((s) => s.file === file));
+
 function removeSound(user, file) {
-  if (!file || !store.isLive(user) || user.alerts.some((a) => a.file === file)) return;
+  if (!file || !store.isLive(user) || isUsed(user, file)) return;
   fs.rmSync(path.join(store.soundDir(user), path.basename(file)), { force: true });
 }
 
 // Deletes sound files that no alert points to (left behind by overlapping edits or older versions).
 function pruneSounds(user) {
   if (!store.isLive(user)) return;
-  const used = new Set(user.alerts.map((a) => a.file));
+  const used = new Set(user.alerts.flatMap((a) => a.sounds.map((s) => s.file)));
   for (const f of fs.readdirSync(store.soundDir(user))) if (!used.has(f)) fs.rmSync(path.join(store.soundDir(user), f), { force: true });
 }
 
@@ -424,6 +507,25 @@ function validCost(c) {
 // Kick wants a #rrggbb hex; anything else falls back to Kick's default color.
 const validColor = (c) => (/^#[0-9a-f]{6}$/i.test(String(c)) ? String(c).toLowerCase() : null);
 
+// Images are only linked (OBS loads them from their own host), so they cost no disk space here.
+function validImage(v) {
+  const s = String(v ?? '').trim();
+  if (!s) return '';
+  let u;
+  try { u = new URL(s); } catch { throw new HttpError(400, 'Image link must start with https://'); }
+  if (u.protocol !== 'https:') throw new HttpError(400, 'Image link must start with https://');
+  if (u.href.length > 500) throw new HttpError(400, 'Image link is too long');
+  return u.href;
+}
+
+// Trim points in seconds; end 0 means "to the end of the sound".
+function validTrim(start, end) {
+  const a = Math.max(0, Math.min(600, Math.round(Number(start) * 100) / 100 || 0));
+  const b = Math.max(0, Math.min(600, Math.round(Number(end) * 100) / 100 || 0));
+  if (b && b <= a + 0.05) throw new HttpError(400, 'The end must be after the start');
+  return { start: a, end: b };
+}
+
 function validVolume(v) {
   const n = Number(v);
   return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : 1;
@@ -441,13 +543,18 @@ function meState(user) {
     maxDuration: user.maxDuration || 0,
     normalize: Boolean(user.normalize),
     card: user.card !== false,
+    cardStyle: cardStyle(user),
     ttsLang: user.ttsLang || 'tr',
     bannedWords: user.bannedWords || [],
     favorites: user.miFavorites || [],
     subscribed: Boolean(user.subscription),
     alerts: user.alerts,
     logs: userLogs.get(user.id) || [],
-    limits: { maxSoundMb: MAX_SOUND_MB, maxAlerts: MAX_ALERTS },
+    queue: queueView(user),
+    stats: statsView(user),
+    publicPage: Boolean(user.publicPage),
+    publicUrl: `${PUBLIC_URL}/c/${encodeURIComponent(user.name || '')}`,
+    limits: { maxSoundMb: MAX_SOUND_MB, maxAlerts: MAX_ALERTS, maxPool: MAX_POOL },
   };
 }
 
@@ -489,6 +596,7 @@ async function handleApi(req, res, user, p, admin) {
     const id = crypto.randomBytes(6).toString('hex');
     const tts = Boolean(b.tts);
     if (!b.sound && !tts) throw new HttpError(400, 'Choose a sound file');
+    validImage(b.image); // fail before a Kick reward is created
     let alert;
     if (b.rewardId) {
       // Attach a sound to a reward that already exists on Kick
@@ -514,10 +622,11 @@ async function handleApi(req, res, user, p, admin) {
       alert = { id, rewardId: reward?.id, title, cost, managed: true, tts, color: validColor(reward?.background_color) || color };
     }
     try {
-      alert.file = b.sound ? saveSound(user, id, await resolveSound(b.sound)) : null;
+      alert.image = validImage(b.image);
+      alert.sounds = b.sound ? [{ ...(await newSound(user, id, b.sound)), ...validTrim(b.sound.start, b.sound.end) }] : [];
       if (user.alerts.length >= MAX_ALERTS) throw new HttpError(400, `You can add at most ${MAX_ALERTS} sound rewards`);
     } catch (e) {
-      if (alert.file) removeSound(user, alert.file);
+      for (const s of alert.sounds || []) removeSound(user, s.file);
       if (alert.managed && alert.rewardId) await kick.deleteReward(user, alert.rewardId).catch(() => {});
       throw e;
     }
@@ -529,12 +638,41 @@ async function handleApi(req, res, user, p, admin) {
     return sendJson(res, 200, meState(user));
   }
 
-  const am = p.match(/^\/api\/alerts\/([a-f0-9]+)(\/test)?$/);
+  const am = p.match(/^\/api\/alerts\/([a-f0-9]+)(?:\/(test|sounds)(?:\/([\w.-]+))?)?$/);
   if (am) {
     const alert = user.alerts.find((a) => a.id === am[1]);
     if (!alert) throw new HttpError(404, 'Reward not found');
 
-    if (am[2] && m === 'POST') {
+    if (am[2] === 'sounds' && !am[3] && m === 'POST') {
+      const b = await readJson(req);
+      if (alert.sounds.length >= MAX_POOL) throw new HttpError(400, `A reward can have at most ${MAX_POOL} sounds`);
+      const sound = { ...(await newSound(user, alert.id, b.sound)), ...validTrim(b.sound?.start, b.sound?.end) };
+      if (!user.alerts.includes(alert) || alert.sounds.length >= MAX_POOL) {
+        fs.rmSync(path.join(store.soundDir(user), sound.file), { force: true });
+        throw new HttpError(400, `A reward can have at most ${MAX_POOL} sounds`);
+      }
+      alert.sounds.push(sound);
+      store.save(user);
+      return sendJson(res, 200, meState(user));
+    }
+
+    if (am[2] === 'sounds' && am[3]) {
+      const sound = alert.sounds.find((s) => s.file === am[3]);
+      if (!sound) throw new HttpError(404, 'Sound not found');
+      if (m === 'PATCH') {
+        const b = await readJson(req);
+        Object.assign(sound, validTrim(b.start, b.end));
+        if (b.name !== undefined) sound.name = String(b.name).trim().slice(0, 80);
+      } else if (m === 'DELETE') {
+        if (alert.sounds.length === 1 && !alert.tts) throw new HttpError(400, 'A reward needs at least one sound unless it reads messages');
+        alert.sounds = alert.sounds.filter((s) => s !== sound);
+        removeSound(user, sound.file);
+      } else throw new HttpError(404, 'Not found');
+      store.save(user);
+      return sendJson(res, 200, meState(user));
+    }
+
+    if (am[2] === 'test' && m === 'POST') {
       playAlert(user, alert, 'test', alert.tts ? (user.ttsLang === 'en' ? 'This is a test message' : 'Bu bir test mesajı') : '');
       return sendJson(res, 200, { ok: true, overlays: overlayCount(user) });
     }
@@ -548,7 +686,7 @@ async function handleApi(req, res, user, p, admin) {
       const color = b.color !== undefined && validColor(b.color);
       if (color && color !== alert.color) kickFields.background_color = color;
       if (b.tts !== undefined && Boolean(b.tts) !== Boolean(alert.tts)) {
-        if (!b.tts && !alert.file && !b.sound) throw new HttpError(400, 'Add a sound before turning off text-to-speech');
+        if (!b.tts && !alert.sounds.length) throw new HttpError(400, 'Add a sound before turning off text-to-speech');
         if (alert.managed) kickFields.is_user_input_required = Boolean(b.tts);
         else alert.tts = Boolean(b.tts);
       }
@@ -562,14 +700,7 @@ async function handleApi(req, res, user, p, admin) {
         if (kickFields.background_color) alert.color = kickFields.background_color;
       }
       if (b.volume !== undefined) alert.volume = validVolume(b.volume);
-      if (b.sound) {
-        const sound = await resolveSound(b.sound);
-        if (!user.alerts.includes(alert)) throw new HttpError(404, 'Reward not found');
-        const old = alert.file; // read after the await, so a change made meanwhile is the one replaced
-        alert.file = saveSound(user, alert.id, sound);
-        removeSound(user, old);
-        pruneSounds(user);
-      }
+      if (b.image !== undefined) alert.image = validImage(b.image);
       store.save(user);
       return sendJson(res, 200, meState(user));
     }
@@ -577,7 +708,6 @@ async function handleApi(req, res, user, p, admin) {
     if (!am[2] && m === 'DELETE') {
       if (alert.managed && alert.rewardId) await kick.deleteReward(user, alert.rewardId);
       user.alerts = user.alerts.filter((a) => a !== alert);
-      removeSound(user, alert.file);
       pruneSounds(user);
       store.save(user);
       log(`Deleted "${alert.title}"`);
@@ -598,8 +728,56 @@ async function handleApi(req, res, user, p, admin) {
     if (b.card !== undefined) user.card = Boolean(b.card);
     if (b.ttsLang !== undefined && TTS_LANGS.includes(b.ttsLang)) user.ttsLang = b.ttsLang;
     if (b.bannedWords !== undefined) user.bannedWords = parseWordList(b.bannedWords);
+    if (b.publicPage !== undefined) user.publicPage = Boolean(b.publicPage);
+    if (Array.isArray(b.favorites)) {
+      user.miFavorites = b.favorites.slice(0, 50).flatMap((f) => {
+        try { return [{ url: myInstantsUrl(f?.url).href, title: String(f.title || '').trim().slice(0, 100) || 'Sound' }]; } catch { return []; }
+      });
+    }
+    if (b.cardStyle) {
+      const c = b.cardStyle, cur = cardStyle(user);
+      user.cardStyle = {
+        position: CARD_POSITIONS.includes(c.position) ? c.position : cur.position,
+        theme: CARD_THEMES.includes(c.theme) ? c.theme : cur.theme,
+        size: CARD_SIZES.includes(c.size) ? c.size : cur.size,
+        accent: validColor(c.accent) || cur.accent,
+      };
+    }
     store.save(user);
     return sendJson(res, 200, meState(user));
+  }
+
+  if (p === '/api/overlay/remove' && m === 'POST') {
+    const b = await readJson(req);
+    sendToOverlays(user, { type: 'remove', qid: String(b.qid || '') });
+    return sendJson(res, 200, { ok: true, overlays: overlayCount(user) });
+  }
+
+  // Streamed one reward at a time, so a big backup never sits in memory whole.
+  if (p === '/api/backup' && m === 'GET') {
+    const settings = {
+      masterVolume: user.masterVolume ?? 1, maxDuration: user.maxDuration || 0, normalize: Boolean(user.normalize), card: user.card !== false,
+      cardStyle: cardStyle(user), ttsLang: user.ttsLang || 'tr', bannedWords: user.bannedWords || [], favorites: user.miFavorites || [], publicPage: Boolean(user.publicPage),
+    };
+    const date = new Date().toISOString().slice(0, 10);
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Disposition': `attachment; filename="audiobounty-${String(user.name || user.id).replace(/[^\w-]/g, '')}-${date}.json"`,
+      'Cache-Control': 'no-store',
+    });
+    res.write(`{"app":"AudioBounty","version":1,"exportedAt":${JSON.stringify(new Date().toISOString())},"settings":${JSON.stringify(settings)},"alerts":[`);
+    const dir = store.soundDir(user);
+    for (const [i, a] of user.alerts.entries()) {
+      const sounds = [];
+      for (const s of a.sounds) {
+        try {
+          sounds.push({ name: s.name || '', start: s.start || 0, end: s.end || 0, ext: path.extname(s.file), data: fs.readFileSync(path.join(dir, s.file)).toString('base64') });
+        } catch {}
+      }
+      const { title, cost, color, tts, volume, enabled, managed, image } = a;
+      res.write((i ? ',' : '') + JSON.stringify({ title, cost, color, tts, volume, enabled, managed, image, sounds }));
+    }
+    return res.end(']}');
   }
 
   if ((p === '/api/overlay/skip' || p === '/api/overlay/clear') && m === 'POST') {
@@ -629,10 +807,41 @@ async function handleApi(req, res, user, p, admin) {
   throw new HttpError(404, 'Not found');
 }
 
+function dirSize(dir) {
+  let n = 0;
+  try { for (const f of fs.readdirSync(dir)) n += fs.statSync(path.join(dir, f)).size; } catch {}
+  return n;
+}
+
+const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Names can change hands on Kick; if two stored accounts share one, the most recent login wins.
+function publicOwner(name) {
+  const n = name.toLowerCase();
+  return store.all().filter((u) => u.publicPage && !u.banned && String(u.name).toLowerCase() === n).sort((a, b) => (b.lastLogin || 0) - (a.lastLogin || 0))[0];
+}
+
+function channelPage(u) {
+  const rewards = u.alerts
+    .filter((a) => a.enabled !== false)
+    .map((a) => ({ title: a.title, cost: a.cost, color: a.color || null, tts: Boolean(a.tts), sounds: a.sounds.map((s) => ({ url: `/p/${u.id}/${s.file}`, start: s.start || 0, end: s.end || 0 })) }));
+  const url = `${PUBLIC_URL}/c/${encodeURIComponent(u.name)}`;
+  const vars = {
+    NAME: escHtml(u.name),
+    URL: escHtml(url),
+    AVATAR: escHtml(u.avatar || ''),
+    PUBLIC_URL: escHtml(PUBLIC_URL),
+    COUNT: String(rewards.length),
+    DATA: JSON.stringify({ name: u.name, avatar: u.avatar || '', rewards }).replace(/</g, '\\u003c'),
+  };
+  return CHANNEL_HTML.replace(/%(NAME|URL|AVATAR|PUBLIC_URL|COUNT|DATA)%/g, (_, k) => vars[k]);
+}
+
 function adminState() {
   const users = store
     .all()
     .map((u) => ({
+      disk: dirSize(store.soundDir(u)),
       id: u.id,
       name: u.name,
       avatar: u.avatar,
@@ -648,7 +857,14 @@ function adminState() {
       admin: isAdmin(u),
     }))
     .sort((a, b) => (b.lastRedemption || 0) - (a.lastRedemption || 0) || String(b.createdAt).localeCompare(String(a.createdAt)));
-  return { users, settings: siteSettings };
+  const system = {
+    ...health,
+    uptime: Date.now() - health.startedAt,
+    disk: users.reduce((n, u) => n + u.disk, 0),
+    memory: process.memoryUsage().rss,
+    overlays: [...overlays.values()].reduce((n, s) => n + s.size, 0),
+  };
+  return { users, settings: siteSettings, system };
 }
 
 async function handleAdmin(req, res, admin, p) {
@@ -710,11 +926,14 @@ const server = http.createServer(async (req, res) => {
     if (p === '/webhook' && req.method === 'POST') {
       const raw = await readBody(req, 1024 * 1024);
       if (!(await kick.verifyWebhook(req.headers, raw))) {
+        health.rejected++;
         res.writeHead(401);
         return res.end();
       }
       res.writeHead(200);
       res.end();
+      health.webhooks++;
+      health.lastWebhookAt = Date.now();
       // The timestamp is signed; an old message is a replay (the dedupe below is lost on restart).
       const sentAt = Date.parse(req.headers['kick-event-message-timestamp']);
       if (Math.abs(Date.now() - sentAt) > WEBHOOK_MAX_AGE) return;
@@ -727,6 +946,18 @@ const server = http.createServer(async (req, res) => {
     // Served even for unknown keys so an OBS source opened while the account is deleted connects once it is back.
     if ((m = p.match(/^\/overlay\/([\w-]+)$/))) {
       return sendFile(res, path.join(PUBLIC_DIR, 'overlay.html'), STATIC_TYPES['.html']);
+    }
+
+    // Each overlay reports what it is playing and what is waiting, by the ids it was sent.
+    if ((m = p.match(/^\/events\/([\w-]+)\/state$/)) && req.method === 'POST') {
+      const user = overlayUser(m[1]);
+      if (!user) throw new HttpError(404, 'Not found');
+      let b = {};
+      try { b = JSON.parse(await readBody(req, 4096)); } catch {}
+      const id = (q) => (typeof q === 'string' && /^[a-f0-9]{12}$/.test(q) ? q : null);
+      queueState.set(user.id, { playing: id(b.playing), queue: (Array.isArray(b.queue) ? b.queue : []).map(id).filter(Boolean).slice(0, 30), at: Date.now() });
+      res.writeHead(204);
+      return res.end();
     }
 
     if ((m = p.match(/^\/events\/([\w-]+)$/))) {
@@ -773,6 +1004,27 @@ const server = http.createServer(async (req, res) => {
         return res.end();
       }
       return sendFile(res, path.join(store.soundDir(user), file), type);
+    }
+
+    if ((m = p.match(/^\/c\/([^/]+)$/))) {
+      const owner = publicOwner(decodeURIComponent(m[1]));
+      if (!owner) {
+        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+        return res.end('This sound list does not exist or is private.');
+      }
+      res.writeHead(200, { 'Content-Type': STATIC_TYPES['.html'], 'Cache-Control': 'no-cache' });
+      return res.end(channelPage(owner));
+    }
+
+    // Public copies of a streamer's sounds, only while their sound list is public.
+    if ((m = p.match(/^\/p\/(\d+)\/([\w.-]+)$/))) {
+      const owner = store.get(m[1]);
+      const type = AUDIO_TYPES[path.extname(m[2]).toLowerCase()];
+      if (!owner?.publicPage || owner.banned || !type || !isUsed(owner, m[2])) {
+        res.writeHead(404);
+        return res.end();
+      }
+      return sendFile(res, path.join(store.soundDir(owner), m[2]), type);
     }
 
     if (p === '/auth/login') {
@@ -858,13 +1110,14 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === '/sitemap.xml') {
       res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8' });
-      return res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${PUBLIC_URL}/</loc></url></urlset>\n`);
+      const pages = store.all().filter((u) => u.publicPage && !u.banned && u.name).map((u) => `<url><loc>${escHtml(`${PUBLIC_URL}/c/${encodeURIComponent(u.name)}`)}</loc></url>`);
+      return res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${PUBLIC_URL}/</loc></url>${pages.join('')}</urlset>\n`);
     }
 
     if (req.method === 'GET') {
       const file = p === '/' ? 'index.html' : path.basename(p);
       const type = STATIC_TYPES[path.extname(file)];
-      if (type && file !== 'overlay.html' && file !== 'admin.html') return sendFile(res, path.join(PUBLIC_DIR, file), type);
+      if (type && !['overlay.html', 'admin.html', 'channel.html'].includes(file)) return sendFile(res, path.join(PUBLIC_DIR, file), type);
     }
 
     res.writeHead(404);
@@ -874,9 +1127,12 @@ const server = http.createServer(async (req, res) => {
     let message = e.message;
     if (e instanceof HttpError) status = e.status;
     else if (e instanceof ReloginError) status = 401;
-    else if (e instanceof KickError) status = 502;
-    else {
+    else if (e instanceof KickError) {
+      status = 502;
+      recordError(`Kick: ${e.message}`);
+    } else {
       console.error(e);
+      recordError(`${req.method} ${p}: ${e.message}`);
       message = 'Server error, please try again';
     }
     if (!res.headersSent) sendJson(res, status, { error: message, relogin: e instanceof ReloginError });
@@ -884,7 +1140,18 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-for (const u of store.all()) pruneSounds(u);
+// Older data kept one sound in alert.file; a reward now has a pool of sounds.
+for (const u of store.all()) {
+  let changed = false;
+  for (const a of u.alerts) {
+    if (a.sounds) continue;
+    a.sounds = a.file ? [{ file: a.file, name: '' }] : [];
+    delete a.file;
+    changed = true;
+  }
+  if (changed) store.save(u);
+  pruneSounds(u);
+}
 
 server.listen(PORT, () => {
   console.log(`Ready: ${PUBLIC_URL}  (port ${PORT}, ${store.count()} streamers)`);

@@ -122,6 +122,12 @@
           </div>
         </div>
       </div>
+      <button class="now-playing" type="button" id="queueOpen" hidden>
+        <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="np-text" id="nowPlaying"></span>
+        <span class="np-count" id="queueCount"></span>
+        <span class="chev" aria-hidden="true">›</span>
+      </button>
       <details class="obs-help" id="obsHelp">
         <summary data-i18n>How to add it to OBS</summary>
         <ol class="steps">
@@ -142,11 +148,18 @@
       <button class="ghost small more" type="button" id="alertsMore" hidden></button>
     </section>
 
-    <button class="activity" type="button" id="activityOpen">
-      <span class="activity-label" data-i18n>Recent activity</span>
-      <span class="activity-last" id="lastActivity"></span>
-      <span class="chev" aria-hidden="true">›</span>
-    </button>
+    <div class="rows">
+      <button class="activity" type="button" id="statsOpen">
+        <span class="activity-label" data-i18n>Statistics</span>
+        <span class="activity-last" id="statsSummary"></span>
+        <span class="chev" aria-hidden="true">›</span>
+      </button>
+      <button class="activity" type="button" id="activityOpen">
+        <span class="activity-label" data-i18n>Recent activity</span>
+        <span class="activity-last" id="lastActivity"></span>
+        <span class="chev" aria-hidden="true">›</span>
+      </button>
+    </div>
   </div>
 
   <footer data-i18n>Designed and built by Emre Sarıkaya.</footer>
@@ -217,24 +230,31 @@
         <button class="primary" type="button" id="editSave" data-i18n>Save changes</button>
       </div>
       <p class="hint" id="editKickNote" data-i18n>This reward was created in the Kick dashboard. Change its name, cost and color on Kick.</p>
+      <h3 class="group-title" data-i18n>Sounds</h3>
       <div class="group">
-        <div class="field">
-          <span class="field-label" data-i18n>Sound</span>
-          <div class="sound-row">
-            <span class="sound-name" id="editSoundName"></span>
-            <button class="icon" type="button" id="editPreview" data-i18n-label="Listen here" data-i18n-title="Listen here">▶</button>
-          </div>
-          <div class="row">
-            <button class="small" type="button" id="editFile" data-i18n>Choose file…</button>
-            <button class="small" type="button" id="editMi" data-i18n>From myinstants</button>
-          </div>
+        <ul class="sound-list" id="editSounds"></ul>
+        <div class="row">
+          <button class="small" type="button" id="editFile" data-i18n>+ Add file</button>
+          <button class="small" type="button" id="editMi" data-i18n>+ From myinstants</button>
         </div>
+        <p class="hint" id="poolHint" data-i18n>Add more than one sound and a random one plays each time.</p>
+      </div>
+      <h3 class="group-title" data-i18n>Playback</h3>
+      <div class="group">
         <div class="field">
           <label for="editVolume"><span data-i18n>Volume level</span>: <span id="editVolVal"></span></label>
           <input id="editVolume" type="range" min="0" max="1" step="0.05">
         </div>
         <label class="check row-check"><span data-i18n>Read the viewer's message aloud</span><input type="checkbox" class="switch" role="switch" id="editTts"></label>
         <label class="check row-check" id="editPausedRow"><span data-i18n>Pause this reward</span><input type="checkbox" class="switch" role="switch" id="editPaused"></label>
+      </div>
+      <h3 class="group-title" data-i18n>Image on stream</h3>
+      <div class="group">
+        <div class="image-row">
+          <img id="editImagePreview" alt="">
+          <input id="editImage" type="url" inputmode="url" maxlength="500" placeholder="https://…/image.gif" data-i18n-label="Image or GIF link">
+        </div>
+        <p class="hint" data-i18n>Paste an image or GIF link (Giphy, Tenor, Imgur…). It shows on the card in OBS. Nothing is uploaded.</p>
       </div>
       <div class="row">
         <button class="small" type="button" id="editTest" data-i18n>Test in OBS</button>
@@ -268,9 +288,29 @@
         <p class="hint" data-i18n>Turns down sounds that are much louder than the rest.</p>
       </div>
 
-      <h3 class="group-title" data-i18n>On stream</h3>
+      <h3 class="group-title" data-i18n>Card on stream</h3>
       <div class="group">
+        <div class="card-preview" id="cardPreview" aria-hidden="true">
+          <div class="cp-card"><b>viewer42</b> 🔊 <span data-i18n>Air horn</span><p data-i18n>Hello stream!</p></div>
+        </div>
         <label class="check row-check"><span data-i18n>Show who redeemed it on stream</span><input type="checkbox" class="switch" role="switch" id="card" data-setting="card"></label>
+        <div class="inline-field"><span class="field-label" data-i18n>Position</span>
+          <div class="seg" role="group" data-card="position"><button type="button" data-v="top" data-i18n>Top</button><button type="button" data-v="center" data-i18n>Middle</button><button type="button" data-v="bottom" data-i18n>Bottom</button></div></div>
+        <div class="inline-field"><span class="field-label" data-i18n>Style</span>
+          <div class="seg" role="group" data-card="theme"><button type="button" data-v="dark" data-i18n>Dark</button><button type="button" data-v="light" data-i18n>Light</button></div></div>
+        <div class="inline-field"><span class="field-label" data-i18n>Size</span>
+          <div class="seg" role="group" data-card="size"><button type="button" data-v="s">S</button><button type="button" data-v="m">M</button><button type="button" data-v="l">L</button></div></div>
+        <div class="field">
+          <span class="field-label" id="cardColorLabel" data-i18n>Accent color</span>
+          <div class="swatches" role="radiogroup" aria-labelledby="cardColorLabel" id="cardSwatches"></div>
+        </div>
+      </div>
+
+      <h3 class="group-title" data-i18n>Public sound list</h3>
+      <div class="group">
+        <label class="check row-check"><span data-i18n>Let anyone see and listen to my sounds</span><input type="checkbox" class="switch" role="switch" id="publicPage" data-setting="publicPage"></label>
+        <div class="linkbox" id="publicRow"><code id="publicUrl"></code><a class="btn small" id="publicOpen" target="_blank" rel="noopener" data-i18n>Open</a><button class="small" type="button" id="publicCopy" data-i18n>Copy</button></div>
+        <p class="hint" data-i18n>Put this link in your Kick About section so viewers know what each reward plays.</p>
       </div>
 
       <h3 class="group-title" data-i18n>Text-to-speech</h3>
@@ -293,6 +333,15 @@
         <button class="small" type="button" id="regenBtn" data-i18n>Regenerate OBS link</button>
       </div>
 
+      <h3 class="group-title" data-i18n>Backup</h3>
+      <div class="group">
+        <div class="row">
+          <a class="btn small" href="/api/backup" download data-i18n>Download backup</a>
+          <button class="small" type="button" id="restoreBtn" data-i18n>Restore from backup…</button>
+        </div>
+        <p class="hint" data-i18n>One file with all your rewards, sounds and settings. Restoring adds rewards that aren't here yet; existing ones are left alone.</p>
+      </div>
+
       <h3 class="group-title" data-i18n>Account</h3>
       <div class="group">
         <button class="small ghost danger" type="button" id="deleteAccountBtn" data-i18n>Delete account</button>
@@ -310,6 +359,81 @@
       <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
     </div>
     <div class="sheet-body"><ul class="log" id="log"></ul></div>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="trimSheet" aria-labelledby="trimTitle">
+  <div class="scrim"></div>
+  <div class="panel">
+    <div class="sheet-grab">
+      <span class="grabber" aria-hidden="true"></span>
+      <h2 id="trimTitle" data-i18n>Trim sound</h2>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <p class="hint trim-name" id="trimName"></p>
+      <div class="trim" id="trimBox">
+        <canvas id="trimWave"></canvas>
+        <div class="trim-head" id="trimHead" hidden></div>
+        <input type="range" id="trimStart" step="0.01" data-i18n-label="Start">
+        <input type="range" id="trimEnd" step="0.01" data-i18n-label="End">
+      </div>
+      <div class="trim-times">
+        <span><span data-i18n>Start</span> <b id="trimStartVal"></b></span>
+        <span><span data-i18n>Length</span> <b id="trimLen"></b></span>
+        <span><span data-i18n>End</span> <b id="trimEndVal"></b></span>
+      </div>
+      <div class="row trim-actions">
+        <button class="small" type="button" id="trimPlay" data-i18n>▶ Play selection</button>
+        <button class="small ghost" type="button" id="trimReset" data-i18n>Use whole sound</button>
+      </div>
+      <button class="primary wide-btn" type="button" id="trimSave" data-i18n>Save</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="queueSheet" aria-labelledby="queueTitle">
+  <div class="scrim"></div>
+  <div class="panel">
+    <div class="sheet-grab">
+      <span class="grabber" aria-hidden="true"></span>
+      <h2 id="queueTitle" data-i18n>Queue</h2>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <h3 class="group-title" data-i18n>Now playing</h3>
+      <ul class="group q-list" id="queueNow"></ul>
+      <h3 class="group-title" data-i18n>Up next</h3>
+      <ul class="group q-list" id="queueNext"></ul>
+      <div class="row">
+        <button class="small" type="button" id="qSkip" data-i18n>Skip current sound</button>
+        <button class="small ghost danger" type="button" id="qClear" data-i18n>Clear queue</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="statsSheet" aria-labelledby="statsTitle">
+  <div class="scrim"></div>
+  <div class="panel">
+    <div class="sheet-grab">
+      <span class="grabber" aria-hidden="true"></span>
+      <h2 id="statsTitle" data-i18n>Statistics</h2>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="tiles">
+        <div><b id="stRed"></b><span data-i18n>Redemptions</span></div>
+        <div><b id="stPts"></b><span data-i18n>Points spent</span></div>
+        <div><b id="stWeek"></b><span data-i18n>Last 7 days</span></div>
+      </div>
+      <h3 class="group-title" data-i18n>Last 30 days</h3>
+      <div class="group"><div class="bars" id="stBars" role="img"></div><div class="bars-axis"><span id="stFrom"></span><span id="stTo"></span></div></div>
+      <h3 class="group-title" data-i18n>Top rewards</h3>
+      <ol class="group rank" id="stRewards"></ol>
+      <h3 class="group-title" data-i18n>Top viewers</h3>
+      <ol class="group rank" id="stViewers"></ol>
+    </div>
   </div>
 </dialog>
 
@@ -342,6 +466,65 @@
 
   // UI text is written in English; TR maps each English string (and server message) to Turkish.
   const TR = {
+    "Statistics": "İstatistikler",
+    "Sounds": "Sesler",
+    "+ Add file": "+ Dosya ekle",
+    "+ From myinstants": "+ myinstants'tan",
+    "Add more than one sound and a random one plays each time.": "Birden fazla ses eklersen her seferinde rastgele biri çalar.",
+    "Playback": "Oynatma",
+    "Image on stream": "Yayında görünen resim",
+    "Image or GIF link": "Resim veya GIF linki",
+    "Paste an image or GIF link (Giphy, Tenor, Imgur…). It shows on the card in OBS. Nothing is uploaded.": "Bir resim ya da GIF linki yapıştır (Giphy, Tenor, Imgur…). OBS'teki kartta görünür. Hiçbir şey yüklenmez.",
+    "Card on stream": "Yayındaki kart",
+    "Air horn": "Korna",
+    "Hello stream!": "Selam yayın!",
+    "Position": "Konum",
+    "Top": "Üst", "Middle": "Orta", "Bottom": "Alt",
+    "Style": "Görünüm",
+    "Size": "Boyut",
+    "Accent color": "Vurgu rengi",
+    "Public sound list": "Herkese açık ses listesi",
+    "Let anyone see and listen to my sounds": "Seslerimi herkes görebilsin ve dinleyebilsin",
+    "Open": "Aç",
+    "Put this link in your Kick About section so viewers know what each reward plays.": "Bu linki Kick'teki Hakkında bölümüne koy; izleyiciler hangi ödülün ne çaldığını bilsin.",
+    "Backup": "Yedek",
+    "Download backup": "Yedeği indir",
+    "Restore from backup…": "Yedekten geri yükle…",
+    "One file with all your rewards, sounds and settings. Restoring adds rewards that aren't here yet; existing ones are left alone.": "Tüm ödüllerin, seslerin ve ayarların tek bir dosyada. Geri yükleme burada olmayan ödülleri ekler; mevcut olanlara dokunmaz.",
+    "Trim sound": "Sesi kırp",
+    "Trim": "Kırp",
+    "Start": "Başlangıç",
+    "End": "Bitiş",
+    "Length": "Süre",
+    "▶ Play selection": "▶ Seçimi çal",
+    "■ Stop": "■ Durdur",
+    "Use whole sound": "Sesin tamamını kullan",
+    "Whole sound": "Sesin tamamı",
+    "Queue": "Kuyruk",
+    "Now playing": "Şimdi çalıyor",
+    "Up next": "Sırada",
+    "Nothing is playing.": "Şu an bir şey çalmıyor.",
+    "Nothing is waiting.": "Sırada bekleyen yok.",
+    "Remove from queue": "Kuyruktan çıkar",
+    "Removed": "Çıkarıldı",
+    "Redemptions": "Kullanım",
+    "Points spent": "Harcanan puan",
+    "Last 7 days": "Son 7 gün",
+    "Last 30 days": "Son 30 gün",
+    "Top rewards": "En çok kullanılan ödüller",
+    "Top viewers": "En çok kullanan izleyiciler",
+    "No redemptions yet.": "Henüz kullanım yok.",
+    "Remove sound": "Sesi kaldır",
+    "Sound added": "Ses eklendi",
+    "Sound removed": "Ses kaldırıldı",
+    "Trim saved": "Kırpma kaydedildi",
+    "Could not load this sound": "Bu ses yüklenemedi",
+    "This is not an AudioBounty backup": "Bu bir AudioBounty yedeği değil",
+    "Image link must start with https://": "Resim linki https:// ile başlamalı",
+    "Image link is too long": "Resim linki çok uzun",
+    "The end must be after the start": "Bitiş, başlangıçtan sonra olmalı",
+    "Sound not found": "Ses bulunamadı",
+    "A reward needs at least one sound unless it reads messages": "Mesaj okumayan bir ödülün en az bir sesi olmalı",
     "Volume level": "Ses düzeyi",
     "Pause this reward": "Ödülü duraklat",
     "Your Kick connection expired, please log in again": "Kick bağlantının süresi doldu, lütfen tekrar giriş yap",
@@ -532,6 +715,14 @@
   };
   // Server log lines and messages built from templates.
   const TR_PATTERNS = [
+    [/^(\d+) sounds$/, (m) => `${m[1]} ses`],
+    [/^\+(\d+) waiting$/, (m) => `+${m[1]} bekliyor`],
+    [/^by (.+)$/, (m) => `${m[1]} tarafından`],
+    [/^([\d.,]+) redemptions · ([\d.,]+) points$/, (m) => `${m[1]} kullanım · ${m[2]} puan`],
+    [/^A reward can have at most (\d+) sounds$/, (m) => `Bir ödülün en fazla ${m[1]} sesi olabilir`],
+    [/^Restore (\d+) rewards from this backup\? Rewards with the same name here are skipped\.$/, (m) => `Bu yedekten ${m[1]} ödül geri yüklensin mi? Burada aynı adda olan ödüller atlanır.`],
+    [/^Restored (\d+) rewards, skipped (\d+)\.$/, (m) => `${m[1]} ödül geri yüklendi, ${m[2]} atlandı.`],
+    [/^Remove "(.+)" from this reward\?$/, (m) => `"${m[1]}" bu ödülden kaldırılsın mı?`],
     [/^You are viewing (.+)'s dashboard as admin( \(banned\))?\. Changes apply to their account\.$/, (m) => `${m[1]} adlı yayıncının panelini admin olarak görüntülüyorsun${m[2] ? ' (yasaklı)' : ''}. Değişiklikler onun hesabına uygulanır.`],
     [/^(.+) redeemed "(.+)"( \(OBS was not connected!\))?( \(muted\))?$/, (m) => `${m[1] === 'Someone' ? 'Birisi' : m[1]} "${m[2]}" ödülünü kullandı${m[3] ? ' (OBS bağlı değildi!)' : ''}${m[4] ? ' (sessiz)' : ''}`],
     [/^Show all \((\d+)\)$/, (m) => `Tümünü göster (${m[1]})`],
@@ -815,6 +1006,9 @@
   const settingsSheet = makeSheet($('settingsSheet'));
   const activitySheet = makeSheet($('activitySheet'));
   const miSheet = makeSheet($('miDialog'));
+  const trimSheet = makeSheet($('trimSheet'));
+  const queueSheet = makeSheet($('queueSheet'));
+  const statsSheet = makeSheet($('statsSheet'));
 
   // A sound comes from a local file or a myinstants pick; sound() returns what /api/alerts expects
   // (null when the sound is optional, i.e. a text-to-speech reward, and nothing was picked).
@@ -836,7 +1030,7 @@
     return {
       reset() { remote = null; input.value = ''; show(''); },
       sound(maxMb, optional) {
-        if (remote) return { url: remote.url };
+        if (remote) return { url: remote.url, title: remote.title };
         const f = input.files[0];
         if (!f) { if (optional) return null; throw new Error('Choose a sound file'); }
         return readFile(f, maxMb);
@@ -995,6 +1189,13 @@
       else el.value = Array.isArray(v) ? v.join(', ') : v;
     }
 
+    renderQueue(state.queue);
+    renderStats(state.stats);
+    renderCardStyle(state.cardStyle);
+    $('publicRow').hidden = !state.publicPage;
+    $('publicUrl').textContent = state.publicUrl;
+    $('publicOpen').href = state.publicUrl;
+
     const logs = state.logs.slice().reverse();
     const latest = logs[0];
     const changed = latest && !firstRender && latest.t > lastLogT;
@@ -1042,7 +1243,7 @@
     moreButton($('alertsMore'), list.length, showAllAlerts);
     $('alerts').innerHTML = shown.map((a, i) => {
       const anim = isNew(a) ? ' enter' : revealFrom >= 0 && i >= revealFrom ? ` enter" style="--i:${i - revealFrom}` : '';
-      const tags = [a.tts ? '🗣️ ' + t('Reads messages') : '', a.enabled === false ? t('Paused') : '', a.managed ? '' : t('Kick dashboard')].filter(Boolean);
+      const tags = [a.sounds.length > 1 ? '🎲 ' + t(`${a.sounds.length} sounds`) : '', a.image ? '🖼️' : '', a.tts ? '🗣️ ' + t('Reads messages') : '', a.enabled === false ? t('Paused') : '', a.managed ? '' : t('Kick dashboard')].filter(Boolean);
       return `<article class="reward${a.enabled === false ? ' off' : ''}${anim}" data-id="${a.id}">
         <button class="reward-main" type="button" data-act="edit" aria-label="${esc(t('Edit'))}: ${esc(a.title)}">
           <span class="reward-title"><span class="dot" style="--c:${esc(a.color || 'var(--muted)')}" aria-hidden="true"></span>${esc(a.title)}</span>
@@ -1150,8 +1351,19 @@
       $('editCost').value = a.cost;
       $('editSwatches').innerHTML = swatchesHtml('editColor', a.color || DEFAULT_COLOR);
     }
-    $('editSoundName').textContent = a.file ? `${t('Sound file')} · ${a.file.split('.').pop().toUpperCase()}` : t('No sound (text-to-speech only)');
-    $('editPreview').hidden = !a.file;
+    const sounds = a.sounds;
+    $('editSounds').innerHTML = sounds.length
+      ? sounds.map((s, i) => `<li data-file="${esc(s.file)}">
+          <button class="icon" type="button" data-s="play" aria-label="${esc(t('Listen here'))}">▶</button>
+          <span class="sound-name"><span>${esc(s.name || `${t('Sound')} ${i + 1}`)}</span><small>${esc(trimLabel(s))}</small></span>
+          <button class="small ghost" type="button" data-s="trim">✂︎ ${esc(t('Trim'))}</button>
+          <button class="icon ghost danger" type="button" data-s="del" aria-label="${esc(t('Remove sound'))}">✕</button></li>`).join('')
+      : `<li class="muted">${esc(t('No sound (text-to-speech only)'))}</li>`;
+    const poolFull = sounds.length >= me.limits.maxPool;
+    $('editFile').disabled = $('editMi').disabled = poolFull;
+    $('poolHint').textContent = poolFull ? t(`A reward can have at most ${me.limits.maxPool} sounds`) : t('Add more than one sound and a random one plays each time.');
+    if (document.activeElement !== $('editImage')) $('editImage').value = a.image || '';
+    showImagePreview(a.image);
     if (document.activeElement !== $('editVolume')) {
       $('editVolume').value = a.volume ?? 1;
       $('editVolVal').textContent = Math.round((a.volume ?? 1) * 100) + '%';
@@ -1171,23 +1383,156 @@
   $('editSave').addEventListener('click', (e) => busy(e.currentTarget, () =>
     patchEdit({ title: $('editName').value, cost: Number($('editCost').value), color: swatchValue($('editSwatches')) }, 'Saved')));
   $('editBody').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('#editName, #editCost')) $('editSave').click(); });
-  $('editPreview').addEventListener('click', () => {
-    const a = editAlert();
+  const mediaUrl = (s) => `/media/${me.overlayKey}/${encodeURIComponent(s.file)}`;
+  const secs = (n) => (Math.round(n * 10) / 10).toFixed(1) + ' s';
+  const trimLabel = (s) => (s.start || s.end ? `${secs(s.start || 0)} – ${s.end ? secs(s.end) : '…'}` : t('Whole sound'));
+
+  // Plays a sound the way OBS will: from its start to its end, at its volume.
+  function previewSound(s, a) {
     previewAudio?.pause();
-    previewAudio = new Audio(`/media/${me.overlayKey}/${encodeURIComponent(a.file)}`);
-    previewAudio.volume = (a.volume ?? 1) * me.masterVolume;
-    previewAudio.play();
-  });
+    clearTimeout(previewSound.t);
+    const audio = previewAudio = new Audio(mediaUrl(s));
+    audio.volume = Math.min(1, (a?.volume ?? 1) * me.masterVolume);
+    if (s.start) audio.currentTime = s.start;
+    audio.onplaying = () => { if (s.end > (s.start || 0)) previewSound.t = setTimeout(() => audio.pause(), (s.end - (s.start || 0)) * 1000); };
+    audio.play().catch(() => toast('Could not play this sound', true));
+  }
+
+  const addSound = (sound) => api(`/api/alerts/${editId}/sounds`, 'POST', { sound }).then((state) => { render(state, true); toast('Sound added'); });
   $('editFile').addEventListener('click', (e) => busy(e.currentTarget, async () => {
     const file = await pickFile();
-    if (!file) return;
-    await patchEdit({ sound: await readFile(file, me.limits.maxSoundMb) }, 'Sound changed');
+    if (file) await addSound(await readFile(file, me.limits.maxSoundMb));
   }));
   $('editMi').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     const r = await pickMyInstants(btn);
-    if (r) busy(btn, () => patchEdit({ sound: { url: r.url } }, `Sound changed to "${r.title}"`));
+    if (r) busy(btn, () => addSound({ url: r.url, title: r.title }));
   });
+  $('editSounds').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-s]');
+    if (!b) return;
+    const a = editAlert(), s = a.sounds.find((x) => x.file === b.closest('li').dataset.file);
+    if (!s) return;
+    if (b.dataset.s === 'play') return previewSound(s, a);
+    if (b.dataset.s === 'trim') return openTrim(a, s, b);
+    if (!confirm(t(`Remove "${s.name || t('Sound')}" from this reward?`))) return;
+    busy(b, async () => {
+      render(await api(`/api/alerts/${a.id}/sounds/${encodeURIComponent(s.file)}`, 'DELETE'), true);
+      toast('Sound removed');
+    });
+  });
+
+  function showImagePreview(url) {
+    const img = $('editImagePreview');
+    img.hidden = !url;
+    if (url && img.getAttribute('src') !== url) img.src = url;
+  }
+  $('editImagePreview').referrerPolicy = 'no-referrer';
+  $('editImagePreview').addEventListener('error', () => { $('editImagePreview').hidden = true; });
+  $('editImage').addEventListener('change', (e) => patchEdit({ image: e.target.value.trim() }, 'Saved').catch((err) => toast(err.message, true)));
+
+  // Trim: the waveform with two handles. Decoded in the browser, so the file on the server is never changed.
+  let trim = null;
+  async function openTrim(a, s, trigger) {
+    trim = { alertId: a.id, file: s.file, duration: 0, peaks: null };
+    $('trimName').textContent = s.name || t('Sound');
+    $('trimHead').hidden = true;
+    trimSheet.open(trigger);
+    try {
+      const buf = await (await fetch(mediaUrl(s))).arrayBuffer();
+      const audio = await new (window.AudioContext || window.webkitAudioContext)().decodeAudioData(buf);
+      if (!trim || trim.file !== s.file) return;
+      trim.duration = audio.duration;
+      trim.data = audio.getChannelData(0);
+    } catch {
+      return toast('Could not load this sound', true);
+    }
+    for (const el of [$('trimStart'), $('trimEnd')]) el.max = trim.duration.toFixed(2);
+    $('trimStart').value = s.start || 0;
+    $('trimEnd').value = s.end || trim.duration;
+    syncTrim();
+  }
+
+  function drawWave() {
+    const c = $('trimWave'), w = c.clientWidth, h = c.clientHeight, dpr = devicePixelRatio || 1;
+    if (!trim?.data || !w) return;
+    c.width = w * dpr; c.height = h * dpr;
+    const g = c.getContext('2d');
+    g.scale(dpr, dpr);
+    const bars = Math.floor(w / 3), step = Math.floor(trim.data.length / bars) || 1;
+    const css = getComputedStyle(document.documentElement);
+    const a = Number($('trimStart').value) / trim.duration, b = Number($('trimEnd').value) / trim.duration;
+    for (let i = 0; i < bars; i++) {
+      let peak = 0;
+      for (let j = i * step; j < (i + 1) * step && j < trim.data.length; j += 8) peak = Math.max(peak, Math.abs(trim.data[j]));
+      const bh = Math.max(2, peak * (h - 8));
+      const x = i / bars;
+      g.fillStyle = x >= a && x <= b ? css.getPropertyValue('--accent').trim() : css.getPropertyValue('--fill-press').trim();
+      g.beginPath();
+      g.roundRect(i * 3, (h - bh) / 2, 2, bh, 1);
+      g.fill();
+    }
+  }
+
+  function syncTrim(moved) {
+    if (!trim?.duration) return;
+    let a = Number($('trimStart').value), b = Number($('trimEnd').value);
+    if (b - a < 0.1) { // the handles can't cross; the one being dragged stops at the other
+      if (moved === $('trimEnd')) b = a + 0.1; else a = b - 0.1;
+      $('trimStart').value = a = Math.max(0, a);
+      $('trimEnd').value = b = Math.min(trim.duration, b);
+    }
+    $('trimStartVal').textContent = secs(a);
+    $('trimEndVal').textContent = secs(b);
+    $('trimLen').textContent = secs(b - a);
+    $('trimBox').style.setProperty('--a', a / trim.duration);
+    $('trimBox').style.setProperty('--b', b / trim.duration);
+    drawWave();
+  }
+  for (const el of [$('trimStart'), $('trimEnd')]) el.addEventListener('input', () => { stopTrimPlay(); syncTrim(el); });
+  addEventListener('resize', () => { if ($('trimSheet').open) drawWave(); });
+
+  let trimAudio = null, trimRaf = 0;
+  function stopTrimPlay() {
+    trimAudio?.pause();
+    trimAudio = null;
+    cancelAnimationFrame(trimRaf);
+    $('trimHead').hidden = true;
+    $('trimPlay').textContent = t('▶ Play selection');
+  }
+  $('trimPlay').addEventListener('click', () => {
+    if (trimAudio) return stopTrimPlay();
+    if (!trim?.duration) return;
+    const a = Number($('trimStart').value), b = Number($('trimEnd').value);
+    const audio = trimAudio = new Audio(mediaUrl({ file: trim.file }));
+    audio.currentTime = a;
+    $('trimPlay').textContent = t('■ Stop');
+    $('trimHead').hidden = false;
+    const tick = () => {
+      if (audio !== trimAudio) return;
+      if (audio.currentTime >= b || audio.ended) return stopTrimPlay();
+      $('trimBox').style.setProperty('--h', audio.currentTime / trim.duration);
+      trimRaf = requestAnimationFrame(tick);
+    };
+    audio.play().then(tick).catch(stopTrimPlay);
+  });
+  $('trimReset').addEventListener('click', () => {
+    if (!trim?.duration) return;
+    stopTrimPlay();
+    $('trimStart').value = 0;
+    $('trimEnd').value = trim.duration;
+    syncTrim();
+  });
+  $('trimSave').addEventListener('click', (e) => busy(e.currentTarget, async () => {
+    if (!trim?.duration) return;
+    const a = Number($('trimStart').value), b = Number($('trimEnd').value);
+    // Whole-sound edges are saved as 0, so nothing is cut when the handles weren't moved.
+    const body = { start: a < 0.05 ? 0 : a, end: b > trim.duration - 0.05 ? 0 : b };
+    render(await api(`/api/alerts/${trim.alertId}/sounds/${encodeURIComponent(trim.file)}`, 'PATCH', body), true);
+    await trimSheet.close();
+    toast('Trim saved');
+  }));
+  trimSheet.onClose = () => { stopTrimPlay(); trim = null; };
   $('editVolume').addEventListener('input', (e) => { $('editVolVal').textContent = Math.round(e.target.value * 100) + '%'; });
   $('editVolume').addEventListener('change', (e) => patchEdit({ volume: Number(e.target.value) }).catch((err) => toast(err.message, true)));
   $('editTts').addEventListener('change', (e) => patchEdit({ tts: e.target.checked }).catch((err) => { e.target.checked = !e.target.checked; toast(err.message, true); }));
@@ -1232,7 +1577,145 @@
     if (!showAllAlerts) $('alerts').closest('section').scrollIntoView({ behavior: reduceMotion.matches ? 'auto' : 'smooth', block: 'start' });
   });
 
-  $('settingsOpen').addEventListener('click', (e) => settingsSheet.open(e.currentTarget));
+  // Queue: what OBS is playing now and what is waiting, as the overlay reports it.
+  function queueItemHtml(q, removable) {
+    const who = q.user && q.user !== 'test' ? t(`by ${q.user}`) : t('Test');
+    return `<li><span class="dot" style="--c:${esc(q.color || 'var(--muted)')}" aria-hidden="true"></span>
+      <span class="q-info"><b>${esc(q.reward)}</b><small>${esc(who)}${q.text ? ' · “' + esc(q.text) + '”' : ''}</small></span>
+      ${removable ? `<button class="icon ghost" type="button" data-qid="${esc(q.qid)}" aria-label="${esc(t('Remove from queue'))}">✕</button>` : ''}</li>`;
+  }
+  function renderQueue(q) {
+    const busyNow = Boolean(q.playing || q.items.length);
+    reveal($('queueOpen'), busyNow);
+    if (q.playing) $('nowPlaying').textContent = `${q.playing.reward}${q.playing.user && q.playing.user !== 'test' ? ' — ' + q.playing.user : ''}`;
+    else $('nowPlaying').textContent = t('Up next');
+    $('queueCount').textContent = q.items.length ? t(`+${q.items.length} waiting`) : '';
+    $('queueOpen').classList.toggle('idle', !q.playing);
+    const key = JSON.stringify(q);
+    if (key === renderQueue.key) return;
+    renderQueue.key = key;
+    $('queueNow').innerHTML = q.playing ? queueItemHtml(q.playing, true) : `<li class="muted">${esc(t('Nothing is playing.'))}</li>`;
+    $('queueNext').innerHTML = q.items.length ? q.items.map((x) => queueItemHtml(x, true)).join('') : `<li class="muted">${esc(t('Nothing is waiting.'))}</li>`;
+  }
+  $('queueOpen').addEventListener('click', (e) => { queueSheet.open(e.currentTarget); poll(); });
+  $('queueSheet').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-qid]');
+    if (!b) return;
+    b.closest('li').classList.add('leaving');
+    try { await api('/api/overlay/remove', 'POST', { qid: b.dataset.qid }); toast('Removed'); setTimeout(refresh, 300); }
+    catch (err) { toast(err.message, true); }
+  });
+  for (const [btnId, path, msg] of [['qSkip', '/api/overlay/skip', 'Skipped'], ['qClear', '/api/overlay/clear', 'Queue cleared']]) {
+    $(btnId).addEventListener('click', (e) => busy(e.currentTarget, async () => { await api(path, 'POST'); toast(msg); setTimeout(refresh, 300); }));
+  }
+
+  // Statistics: totals, a 30-day bar chart and the top rewards and viewers.
+  const fmt = (n) => Number(n || 0).toLocaleString(lang === 'tr' ? 'tr-TR' : 'en-US');
+  function renderStats(st) {
+    $('statsSummary').textContent = st.redemptions ? t(`${fmt(st.redemptions)} redemptions · ${fmt(st.points)} points`) : t('No redemptions yet.');
+    if (!$('statsSheet').open) return;
+    const days = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 864e5).toISOString().slice(0, 10);
+      days.push([d, st.days[d] || 0]);
+    }
+    const max = Math.max(1, ...days.map((d) => d[1]));
+    const dayName = (d) => new Date(d + 'T12:00:00Z').toLocaleDateString(lang === 'tr' ? 'tr-TR' : 'en-US', { day: 'numeric', month: 'short' });
+    $('stRed').textContent = fmt(st.redemptions);
+    $('stPts').textContent = fmt(st.points);
+    $('stWeek').textContent = fmt(days.slice(-7).reduce((n, d) => n + d[1], 0));
+    $('stBars').innerHTML = days.map(([d, n]) => `<i style="--v:${n / max}" title="${esc(dayName(d))}: ${n}"></i>`).join('');
+    $('stBars').setAttribute('aria-label', days.map(([d, n]) => `${dayName(d)}: ${n}`).join(', '));
+    $('stFrom').textContent = dayName(days[0][0]);
+    $('stTo').textContent = dayName(days[29][0]);
+    const rank = (rows) => {
+      const top = Math.max(1, ...rows.map((r) => r.count));
+      return rows.length
+        ? rows.map((r) => `<li style="--v:${r.count / top}"><span>${r.color ? `<span class="dot" style="--c:${esc(r.color)}"></span>` : ''}${esc(r.name)}</span><b>${fmt(r.count)}</b></li>`).join('')
+        : `<li class="muted">${esc(t('No redemptions yet.'))}</li>`;
+    };
+    $('stRewards').innerHTML = rank(me.alerts.filter((a) => a.count).sort((a, b) => b.count - a.count).slice(0, 10).map((a) => ({ name: a.title, count: a.count, color: a.color })));
+    $('stViewers').innerHTML = rank(st.viewers);
+  }
+  $('statsOpen').addEventListener('click', (e) => { statsSheet.open(e.currentTarget); renderStats(me.stats); });
+
+  // Card on stream: segmented controls and an accent color, with a live preview.
+  function renderCardStyle(cs) {
+    for (const seg of document.querySelectorAll('[data-card]')) {
+      for (const b of seg.querySelectorAll('button')) b.classList.toggle('on', b.dataset.v === cs[seg.dataset.card]);
+      if ($('settingsSheet').open) movePill(seg);
+    }
+    if (renderCardStyle.accent !== cs.accent || !$('cardSwatches').firstChild) {
+      renderCardStyle.accent = cs.accent;
+      $('cardSwatches').innerHTML = swatchesHtml('cardColor', cs.accent);
+    }
+    const pv = $('cardPreview');
+    pv.className = `card-preview ${cs.position} ${cs.theme} ${cs.size}`;
+    pv.style.setProperty('--card-accent', cs.accent);
+    pv.classList.toggle('no-name', !me.card);
+  }
+  // Only the changed field: the server keeps the rest, so quick changes in a row can't undo each other.
+  const saveCardStyle = (patch) => api('/api/settings', 'POST', { cardStyle: patch }).then((st) => render(st, false)).catch((err) => toast(err.message, true));
+  for (const seg of document.querySelectorAll('[data-card]')) {
+    seg.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-v]');
+      if (!b) return;
+      for (const x of seg.querySelectorAll('button')) x.classList.toggle('on', x === b);
+      movePill(seg);
+      saveCardStyle({ [seg.dataset.card]: b.dataset.v });
+    });
+  }
+  $('cardSwatches').addEventListener('change', () => saveCardStyle({ accent: swatchValue($('cardSwatches')) }));
+
+  $('publicCopy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(me.publicUrl); toast('Copied'); } catch { prompt(t('Copy the link:'), me.publicUrl); }
+  });
+
+  // Restore runs through the normal endpoints one reward at a time, so every check (and Kick) applies as usual.
+  const sameTitle = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  $('restoreBtn').addEventListener('click', (e) => busy(e.currentTarget, async () => {
+    const i = document.createElement('input');
+    i.type = 'file';
+    i.accept = '.json,application/json';
+    const file = await new Promise((ok) => { i.onchange = () => ok(i.files[0]); i.oncancel = () => ok(null); i.click(); });
+    if (!file) return;
+    let backup;
+    try { backup = JSON.parse(await file.text()); } catch {}
+    if (backup?.app !== 'AudioBounty' || !Array.isArray(backup.alerts)) throw new Error('This is not an AudioBounty backup');
+    if (!confirm(t(`Restore ${backup.alerts.length} rewards from this backup? Rewards with the same name here are skipped.`))) return;
+    const kickRewards = (await api('/api/rewards').catch(() => ({ rewards: [] }))).rewards;
+    const snd = (s) => ({ name: 'sound' + (/^\.\w{2,4}$/.test(s.ext) ? s.ext : '.mp3'), data: s.data, title: s.name, start: s.start, end: s.end });
+    let added = 0, skipped = 0;
+    const failed = [];
+    for (const a of backup.alerts) {
+      if (me.alerts.some((x) => sameTitle(x.title, a.title)) || me.alerts.length >= me.limits.maxAlerts) { skipped++; continue; }
+      const [first, ...rest] = a.sounds || [];
+      const onKick = kickRewards.find((r) => sameTitle(r.title, a.title) && !me.alerts.some((x) => x.rewardId === r.id));
+      const body = onKick ? { rewardId: onKick.id } : { title: a.title, cost: a.cost, color: a.color };
+      Object.assign(body, { tts: Boolean(a.tts), volume: a.volume ?? 1, image: a.image || '', sound: first ? snd(first) : null });
+      try {
+        let state = await api('/api/alerts', 'POST', body);
+        const created = state.alerts[state.alerts.length - 1];
+        for (const s of rest) state = await api(`/api/alerts/${created.id}/sounds`, 'POST', { sound: snd(s) });
+        if (a.enabled === false && created.managed) state = await api(`/api/alerts/${created.id}`, 'PATCH', { enabled: false });
+        render(state, true);
+        added++;
+      } catch (err) {
+        failed.push(`${a.title}: ${t(err.message)}`);
+      }
+    }
+    const st = backup.settings || {};
+    render(await api('/api/settings', 'POST', {
+      masterVolume: st.masterVolume, maxDuration: st.maxDuration, normalize: st.normalize, card: st.card, cardStyle: st.cardStyle,
+      ttsLang: st.ttsLang, bannedWords: (st.bannedWords || []).join(', '), favorites: st.favorites, publicPage: st.publicPage,
+    }), true);
+    toast(t(`Restored ${added} rewards, skipped ${skipped + failed.length}.`) + (failed.length ? ' ' + failed.join(' · ') : ''), Boolean(failed.length));
+  }));
+
+  $('settingsOpen').addEventListener('click', (e) => {
+    settingsSheet.open(e.currentTarget);
+    for (const seg of document.querySelectorAll('[data-card]')) movePill(seg);
+  });
   $('activityOpen').addEventListener('click', (e) => activitySheet.open(e.currentTarget));
 
   function toggleMenu(btn) {
@@ -1356,10 +1839,18 @@
   if (q.get('err')) toast(q.get('err'), true);
   if (q.size) history.replaceState(null, '', '/');
 
+  // Faster while the queue is open, since it changes with every sound.
+  let pollTimer = 0;
+  async function poll() {
+    clearTimeout(pollTimer);
+    if (!document.hidden) await refresh(false);
+    pollTimer = setTimeout(poll, $('queueSheet').open ? 1500 : 4000);
+  }
+
   fetch('/api/me').then(async (res) => {
     if (res.status === 401) return showLanding();
     render(await res.json(), true);
-    setInterval(() => { if (!document.hidden) refresh(false); }, 4000);
+    pollTimer = setTimeout(poll, 4000);
   }).catch(showLanding);
 </script>
 </body>

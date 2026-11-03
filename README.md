@@ -9,8 +9,10 @@ You host it once. Streamers log in with Kick, add their sounds and paste one lin
 - **Rewards are created for you.** Streamers pick a name, a cost, a color and a sound; the reward appears on their Kick channel automatically. Rewards that already exist on Kick can get a sound too.
 - **Sounds from a file or from myinstants.com.** Upload your own file, or search [myinstants.com](https://www.myinstants.com), browse trending sounds and keep favorites without downloading anything.
 - **Text-to-speech rewards.** The viewer types a message when redeeming and it's read aloud on stream, with a banned-word list and a spam filter.
-- **Live controls.** Mute everything, skip the current sound or clear the queue while you're live.
-- **An on-stream card** shows who redeemed what, with the message being read.
+- **Sound pools and trimming.** Give a reward up to 10 sounds and a random one plays each time; trim any sound to the part you want on a waveform.
+- **Live controls.** See what's playing and what's waiting, remove one, skip the current sound, clear the queue or mute everything.
+- **An on-stream card** shows who redeemed what, with the message being read, in your position, style, size and color, with an optional image or GIF per reward (linked, never stored).
+- **Statistics, a public sound list and backups.** Redemptions and points over 30 days with top rewards and viewers, an optional `/c/<name>` page where viewers can listen to every sound, and a one-file backup you can restore.
 - **One link per streamer.** Each streamer gets a private, unguessable OBS browser source URL that can be regenerated at any time.
 - **Multi-streamer.** One deployment serves any number of channels.
 - **Official Kick API.** OAuth 2.1 login, channel reward management and signed webhooks. No scraping, no unofficial sockets.
@@ -41,7 +43,10 @@ Viewer redeems "sound1" on Kick
 
 - **Add**: name, cost, color on Kick (8 presets or a custom color) and a sound. Turn on **Read the viewer's message aloud** to make it a text-to-speech reward; the sound is then optional.
 - **Attach** a sound to a reward that already exists on Kick.
-- Per reward: **Test** plays it in OBS, **▶** plays it in the browser, and the **•••** menu changes the sound (file or myinstants), turns text-to-speech on or off, edits the name, cost and color, pauses or resumes it, or deletes it.
+- Per reward: **Test** plays it in OBS; tapping the card opens everything else: name, cost and color, its sounds, volume, text-to-speech, pause, an image or GIF link for the on-stream card, and delete.
+- **Sound pool**: up to 10 sounds per reward (files or myinstants). With more than one, a random one plays each time, never the same one twice in a row.
+- **Trim**: drag the start and end on the sound's waveform and play the selection before saving. The file isn't changed; OBS plays just that part.
+- **Image or GIF**: paste an https link (Giphy, Tenor, Imgur…). OBS loads it from that site, so it takes no space on the server.
 - Rewards created in the Kick dashboard keep their name, cost and color on Kick; only their sound is managed here. They must have **Skip reward requests queue** turned on in Kick, so viewers' redemptions play right away and nothing is read before you approve it.
 - A volume slider per reward, on top of the master volume.
 
@@ -60,7 +65,20 @@ Search myinstants.com, see trending sounds, listen before choosing and star favo
 ### Live controls
 
 - **Mute all sounds**: nothing plays in OBS; redemptions are still logged. Muting also clears what's queued.
+- **Queue**: while OBS is playing, the status bar shows the current sound and how many are waiting. Tap it to see the list and remove any one of them.
 - **Skip current sound** and **Clear queue**.
+
+### Statistics
+
+Total redemptions and points spent, a 30-day chart, and the top 10 rewards and viewers. Kept in the streamer's own file (the last 30 days, and at most 300 viewers).
+
+### Public sound list
+
+Off by default. When turned on in Settings, `/c/<kick name>` lists the streamer's active rewards with their cost, and anyone can listen to each sound (trimmed as on stream). These pages are added to `sitemap.xml`.
+
+### Backup and restore
+
+**Download backup** saves one JSON file with every reward, its sounds (inside the file), trims, images and the settings. **Restore from backup** adds the rewards from the file that aren't there yet, creating them on Kick again (or reusing a Kick reward with the same name), then applies the settings.
 
 ### Settings
 
@@ -70,6 +88,8 @@ Search myinstants.com, see trending sounds, listen before choosing and star favo
 | Max sound length | Cuts sounds after N seconds (0 = no limit) |
 | Even out loudness | Turns down sounds that are much louder than the rest |
 | Show who redeemed it on stream | The on-stream card with the viewer's name and message |
+| Card on stream | Position (top, middle, bottom), dark or light, size and accent color, with a live preview |
+| Public sound list | Turns the `/c/<name>` page on or off |
 | Text-to-speech voice | Turkish or English |
 | Banned words | Comma or line separated |
 | Regenerate OBS link | The old link stops working |
@@ -79,14 +99,15 @@ Search myinstants.com, see trending sounds, listen before choosing and star favo
 
 - Turkish and English, from the button in the header (defaults to the browser's language).
 - Automatic, light or dark theme from the theme button in the header, also available before logging in.
-- Long lists (rewards, recent activity) show the first 3 with **Show all**.
+- Long reward lists show the first 6 with **Show all**.
 - Respects the system's reduced motion, reduced transparency and increased contrast settings.
 
 ### Admin panel
 
 Set `ADMIN_KICK_IDS` to your Kick user id (comma-separated for more than one admin). Admins get an **Admin** link in the dashboard header that opens `/admin`, where they can:
 
-- See every streamer: rewards, redemption count, last redemption, last login, whether OBS is connected, muted or banned.
+- See every streamer: rewards, disk space used by their sounds, redemption count, last redemption, last login, whether OBS is connected, muted or banned.
+- See whether Kick webhooks are arriving (count, rejected signatures, last one), total sound storage, memory, uptime and the last 20 server errors.
 - **Open** a streamer's dashboard and change anything in it as if they were that streamer. A banner shows whose dashboard is open; changes are marked "(admin)" in their recent activity.
 - **Ban** a streamer (they can't log in and their sounds stop playing) or **delete** them (their Kick rewards, sounds and settings are removed).
 - Set banned words that apply to every streamer's text-to-speech, and close new sign-ups.

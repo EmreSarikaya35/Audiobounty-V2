@@ -32,8 +32,22 @@
   .tag.red { background: var(--danger-soft); color: var(--danger); }
   .tag.green { background: var(--accent-soft); color: var(--accent-text); }
   .tag.amber { background: var(--warn-soft); color: var(--warn); }
+  .sys { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; margin: .75rem 0; }
+  .sys div { background: var(--surface-2); border-radius: 12px; padding: .7rem .85rem; }
+  .sys b { display: block; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .sys span { color: var(--muted); font-size: .75rem; }
+  .health { display: inline-flex; align-items: center; gap: .4rem; font-size: .8125rem; font-weight: 600; padding: .15rem .65rem; border-radius: 99px; }
+  .health::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; }
+  .health.ok { color: var(--accent-text); background: var(--accent-soft); }
+  .health.warn { color: var(--warn); background: var(--warn-soft); }
+  ul.errors { list-style: none; margin: 0; padding: 0; font-size: .8125rem; max-height: 14rem; overflow-y: auto; }
+  ul.errors li { display: flex; gap: .75rem; padding: .4rem 0; border-top: 1px solid var(--line); }
+  ul.errors li:first-child { border-top: 0; }
+  ul.errors time { color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
+  ul.errors span { overflow-wrap: anywhere; }
   @media (max-width: 640px) {
     .stats { grid-template-columns: 1fr 1fr; }
+    .sys { grid-template-columns: 1fr 1fr; }
     .user { grid-template-columns: 2.5rem minmax(0,1fr); }
     .user .actions { grid-column: 1 / -1; justify-content: flex-start; }
   }
@@ -63,6 +77,14 @@
     <p class="lead" data-i18n>Open a streamer to see and change their rewards, sounds and settings as if you were them.</p>
     <input type="search" id="search" data-i18n-ph="Search by name or Kick ID" autocomplete="off">
     <div class="users" id="users"></div>
+  </section>
+
+  <section class="card">
+    <h2><span data-i18n>System</span> <span class="health" id="health"></span></h2>
+    <p class="lead" data-i18n>Kick sends a webhook for every redemption. If none arrive while streamers are live, the Kick app settings or the public URL are wrong.</p>
+    <div class="sys" id="sys"></div>
+    <h3 class="group-title" style="margin:1rem 0 .4rem" data-i18n>Recent errors</h3>
+    <ul class="errors" id="errors"></ul>
   </section>
 
   <section class="card">
@@ -111,6 +133,18 @@
     'never': 'hiç',
     'No streamers found': 'Yayıncı bulunamadı',
     'Theme': 'Tema',
+    'System': 'Sistem',
+    'Kick sends a webhook for every redemption. If none arrive while streamers are live, the Kick app settings or the public URL are wrong.': "Kick her ödül kullanımında bir webhook gönderir. Yayıncılar yayındayken hiç gelmiyorsa Kick uygulama ayarları ya da site adresi yanlıştır.",
+    'Recent errors': 'Son hatalar',
+    'No errors since the server started.': 'Sunucu başladığından beri hata yok.',
+    'Webhooks OK': 'Webhook çalışıyor',
+    'No webhooks yet': 'Henüz webhook gelmedi',
+    'Webhooks received': 'Gelen webhook',
+    'Rejected (bad signature)': 'Reddedilen (geçersiz imza)',
+    'Last webhook': 'Son webhook',
+    'Sound storage': 'Ses depolama',
+    'Server memory': 'Sunucu belleği',
+    'Uptime': 'Çalışma süresi',
     'Something went wrong': 'Bir şeyler ters gitti',
     "You can't ban yourself": 'Kendini yasaklayamazsın',
     'Delete your own account from your dashboard': 'Kendi hesabını kendi panelinden sil',
@@ -119,7 +153,8 @@
     'Could not remove the rewards from Kick (the Kick connection may have expired). Delete anyway? The rewards will stay on Kick and must be removed there.': "Ödüller Kick'ten kaldırılamadı (Kick bağlantısının süresi dolmuş olabilir). Yine de silinsin mi? Ödüller Kick'te kalır ve oradan kaldırılması gerekir.",
   };
   const TR_PATTERNS = [
-    [/^(\d+) rewards · (\d+) redemptions · last (.+)$/, (m) => `${m[1]} ödül · ${m[2]} kullanım · son ${t(m[3])}`],
+    [/^(\d+) rewards · (.+) · (\d+) redemptions · last (.+)$/, (m) => `${m[1]} ödül · ${m[2]} · ${m[3]} kullanım · son ${t(m[4])}`],
+    [/^(\d+)d (\d+)h$/, (m) => `${m[1]} gün ${m[2]} sa`],
     [/^Joined (.+) · last login (.+)$/, (m) => `Kayıt ${m[1]} · son giriş ${t(m[2])}`],
     [/^Ban (.+)\? They can't log in and their sounds stop playing until you lift the ban\.$/, (m) => `${m[1]} yasaklansın mı? Yasağı kaldırana kadar giriş yapamaz ve sesleri çalmaz.`],
     [/^Delete (.+)\? Their sounds, settings and the Kick rewards created here will be removed\. This cannot be undone\.$/, (m) => `${m[1]} silinsin mi? Sesleri, ayarları ve burada oluşturulan Kick ödülleri kaldırılır. Bu geri alınamaz.`],
@@ -164,6 +199,9 @@
     try { await fn(); } catch (e) { toast(e.message, true); } finally { btn.disabled = false; btn.innerHTML = label; btn.style.minWidth = ''; }
   }
 
+  const size = (n) => (n >= 1e9 ? (n / 1e9).toFixed(2) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.round(n / 1e3) + ' KB');
+  const uptime = (ms) => `${Math.floor(ms / 864e5)}d ${Math.floor(ms / 36e5) % 24}h`;
+
   let state = null;
   let settingsDirty = false;
 
@@ -176,6 +214,21 @@
       [users.reduce((n, u) => n + u.redemptions, 0), 'Redemptions'],
       [users.filter((u) => u.banned).length, 'Banned'],
     ].map(([n, label]) => `<div><b>${n}</b><span>${esc(t(label))}</span></div>`).join('');
+
+    const sys = s.system;
+    $('health').className = 'health ' + (sys.lastWebhookAt ? 'ok' : 'warn');
+    $('health').textContent = t(sys.lastWebhookAt ? 'Webhooks OK' : 'No webhooks yet');
+    $('sys').innerHTML = [
+      [sys.webhooks, 'Webhooks received'],
+      [sys.rejected, 'Rejected (bad signature)'],
+      [when(sys.lastWebhookAt), 'Last webhook'],
+      [size(sys.disk), 'Sound storage'],
+      [size(sys.memory), 'Server memory'],
+      [t(uptime(sys.uptime)), 'Uptime'],
+    ].map(([v, label]) => `<div><b>${esc(t(String(v)))}</b><span>${esc(t(label))}</span></div>`).join('');
+    $('errors').innerHTML = sys.errors.length
+      ? sys.errors.slice().reverse().map((e) => `<li><time>${esc(when(e.t))}</time><span>${esc(e.msg)}</span></li>`).join('')
+      : `<li class="muted">${esc(t('No errors since the server started.'))}</li>`;
 
     const q = $('search').value.trim().toLocaleLowerCase('tr');
     const shown = users.filter((u) => !q || String(u.name).toLocaleLowerCase('tr').includes(q) || u.id.includes(q));
@@ -190,7 +243,7 @@
             ${u.overlays ? `<span class="tag green">${t('OBS on')}</span>` : ''}
             ${u.connected ? '' : `<span class="tag amber">${t('Kick not connected')}</span>`}
           </div>
-          <div class="meta">${esc(t(`${u.alerts} rewards · ${u.redemptions} redemptions · last ${when(u.lastRedemption)}`))}</div>
+          <div class="meta">${esc(t(`${u.alerts} rewards · ${size(u.disk)} · ${u.redemptions} redemptions · last ${when(u.lastRedemption)}`))}</div>
           <div class="meta">${esc(t(`Joined ${day(u.createdAt)} · last login ${when(u.lastLogin)}`))}</div>
         </div>
         <div class="actions">

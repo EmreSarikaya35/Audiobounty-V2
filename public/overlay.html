@@ -12,21 +12,33 @@
     background: rgba(0,0,0,.6); padding: 6px 10px; border-radius: 6px;
   }
   body.debug #status { display: block; }
+  /* The card's look comes from the streamer's settings: --accent, a position, a theme and a size */
   #card {
-    position: fixed; left: 50%; top: 24px; max-width: min(640px, calc(100vw - 48px));
-    transform: translate(-50%, -16px); opacity: 0; transition: opacity .25s, transform .25s;
-    font: 600 22px/1.35 system-ui, sans-serif; color: #fff; text-align: center;
-    background: rgba(14,16,18,.88); border: 2px solid #53fc18; border-radius: 14px; padding: 12px 20px;
+    --accent: #53fc18; --s: 1;
+    position: fixed; left: 50%; top: 24px; max-width: min(calc(640px * var(--s)), calc(100vw - 48px));
+    transform: translate(-50%, -16px) scale(.96); opacity: 0;
+    transition: opacity .3s, transform .45s cubic-bezier(.2,.9,.3,1);
+    font: 600 calc(22px * var(--s))/1.35 system-ui, sans-serif; color: #fff; text-align: center;
+    background: rgba(14,16,18,.88); border: 2px solid var(--accent); border-radius: calc(16px * var(--s)); padding: calc(12px * var(--s)) calc(20px * var(--s));
     text-shadow: 0 1px 2px rgba(0,0,0,.5);
   }
   #card.on { opacity: 1; transform: translate(-50%, 0); }
-  #card b { color: #53fc18; }
-  #card p { margin: 6px 0 0; font-weight: 500; font-size: 20px; overflow-wrap: anywhere; }
+  #card.center { top: 50%; transform: translate(-50%, -50%) scale(.92); }
+  #card.center.on { transform: translate(-50%, -50%); }
+  #card.bottom { top: auto; bottom: 24px; transform: translate(-50%, 16px) scale(.96); }
+  #card.bottom.on { transform: translate(-50%, 0); }
+  #card.light { background: rgba(255,255,255,.94); color: #111; text-shadow: none; }
+  #card.s { --s: .8; } #card.l { --s: 1.3; }
+  #card b { color: var(--accent); }
+  #card.light b { filter: brightness(.75); }
+  #card p { margin: 6px 0 0; font-weight: 500; font-size: calc(20px * var(--s)); overflow-wrap: anywhere; }
+  #cardImg { display: block; max-width: 100%; max-height: calc(220px * var(--s)); margin: 0 auto calc(8px * var(--s)); border-radius: calc(10px * var(--s)); }
+  #cardImg:not([src]) { display: none; }
 </style>
 </head>
 <body>
 <div id="status">connecting…</div>
-<div id="card"><div id="cardHead"></div><p id="cardText"></p></div>
+<div id="card"><img id="cardImg" alt="" referrerpolicy="no-referrer"><div id="cardHead"></div><p id="cardText"></p></div>
 <script>
   // ?debug=1 shows the connection status and the sound being played
   const params = new URLSearchParams(location.search);
@@ -42,7 +54,15 @@
   function show(text) { statusEl.textContent = text; }
 
   function showCard(item) {
-    if (!item.card) return;
+    if (!item.card && !item.image) return;
+    const st = item.style || {};
+    card.className = [st.position, st.theme, st.size].filter(Boolean).join(' ');
+    if (st.accent) card.style.setProperty('--accent', st.accent);
+    const img = document.getElementById('cardImg');
+    if (item.image) img.src = item.image; else img.removeAttribute('src');
+    document.getElementById('cardHead').hidden = !item.card;
+    document.getElementById('cardText').hidden = !item.card;
+    if (!item.card) return requestAnimationFrame(() => card.classList.add('on'));
     document.getElementById('cardHead').textContent = '';
     const who = document.createElement('b');
     who.textContent = item.user && item.user !== 'test' ? item.user : 'Test';
@@ -50,7 +70,7 @@
     const p = document.getElementById('cardText');
     p.textContent = item.text || '';
     p.hidden = !item.text;
-    card.classList.add('on');
+    requestAnimationFrame(() => card.classList.add('on'));
   }
 
   // Loudness normalization: measures the sound's RMS once and turns loud sounds down to a common level.
@@ -71,13 +91,16 @@
     return gain;
   }
 
-  function playUrl(url, volume, maxSec) {
+  // start/end trim the sound (seconds, end 0 = to the end); maxSec is the streamer's overall limit.
+  function playUrl(url, volume, maxSec, start = 0, end = 0) {
     return new Promise((resolve) => {
       const audio = new Audio(url);
       audio.volume = Math.max(0, Math.min(1, volume));
+      if (start) audio.currentTime = start;
       let timer = 0;
       const stop = () => { clearTimeout(timer); audio.pause(); current = null; resolve(); };
-      if (maxSec > 0) timer = setTimeout(stop, maxSec * 1000);
+      const limits = [maxSec > 0 ? maxSec : 0, end > start ? end - start : 0].filter(Boolean);
+      audio.onplaying = () => { if (limits.length && !timer) timer = setTimeout(stop, Math.min(...limits) * 1000); };
       audio.onended = stop;
       audio.onerror = stop;
       current = stop;
@@ -85,50 +108,81 @@
     });
   }
 
+  // Tells the server what is playing and waiting, so the dashboard can show the queue.
+  let playingId = null, reportQueued = false;
+  function report() {
+    if (reportQueued) return;
+    reportQueued = true;
+    setTimeout(() => {
+      reportQueued = false;
+      fetch(location.pathname.replace('/overlay/', '/events/') + '/state', {
+        method: 'POST',
+        body: JSON.stringify({ playing: playingId, queue: queue.map((q) => q.qid) }),
+      }).catch(() => {});
+    }, 50);
+  }
+
   async function next() {
     if (playing || !queue.length) return;
     const item = queue.shift();
     playing = true;
     skipping = false;
+    playingId = item.qid || null;
+    report();
     show(`▶ ${item.reward}${item.user ? ' — ' + item.user : ''}`);
     showCard(item);
     const volume = item.volume ?? 1;
     if (item.url && !skipping) {
       const gain = item.normalize ? await loudnessGain(item.url) : 1;
-      if (!skipping) await playUrl(item.url, volume * gain, item.maxDuration);
+      if (!skipping) await playUrl(item.url, volume * gain, item.maxDuration, item.start, item.end);
     }
     if (item.tts && !skipping) await playUrl(item.tts, volume, 0);
     card.classList.remove('on');
     playing = false;
+    playingId = null;
+    report();
     show('connected');
     setTimeout(next, 300);
   }
 
   // EventSource gives up for good when the server answers 404 (e.g. while the account is deleted and
   // not yet re-created), so retry ourselves with backoff instead of needing an OBS refresh.
-  let retryMs = 3000;
+  let retryMs = 3000, es = null, lastEvent = Date.now();
+  // The server pings every 25 s; a proxy can keep a dead connection looking open, so silence means reconnect.
+  setInterval(() => {
+    if (es?.readyState === EventSource.OPEN && Date.now() - lastEvent > 60000) { es.close(); connect(); }
+  }, 10000);
   function connect() {
     const key = location.pathname.split('/').pop();
-    const es = new EventSource('/events/' + encodeURIComponent(key));
-    es.onopen = () => { retryMs = 3000; show('connected'); };
-    es.onerror = () => {
-      if (es.readyState !== EventSource.CLOSED) return show('connection lost, retrying…');
-      es.close();
+    lastEvent = Date.now();
+    const src = (es = new EventSource('/events/' + encodeURIComponent(key)));
+    src.onopen = () => { retryMs = 3000; lastEvent = Date.now(); show('connected'); report(); };
+    src.onerror = () => {
+      if (src.readyState !== EventSource.CLOSED) return show('connection lost, retrying…');
+      src.close();
       // Outside OBS, say why nothing happens; inside OBS keep the stream clean.
       if (!window.obsstudio) document.body.classList.add('debug');
       show('This OBS link is not active. Waiting for it… If it never connects, copy the current link from the dashboard.');
       setTimeout(connect, retryMs);
       retryMs = Math.min(retryMs * 2, 10000);
     };
-    es.onmessage = (e) => {
+    src.onmessage = (e) => {
+      lastEvent = Date.now();
       const msg = JSON.parse(e.data);
       if (msg.type === 'play' && queue.length < 30) {
         queue.push(msg);
+        report();
         next();
       } else if (msg.type === 'skip' || msg.type === 'clear') {
         if (msg.type === 'clear') queue.length = 0;
         skipping = true;
         current?.();
+        report();
+      } else if (msg.type === 'remove') {
+        if (msg.qid === playingId) { skipping = true; current?.(); }
+        const i = queue.findIndex((q) => q.qid === msg.qid);
+        if (i >= 0) queue.splice(i, 1);
+        report();
       }
     };
   }
