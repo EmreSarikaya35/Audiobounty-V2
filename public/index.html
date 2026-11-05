@@ -575,6 +575,7 @@
     "Could not load this sound": "Bu ses yüklenemedi",
     "This is not an AudioBounty backup": "Bu bir AudioBounty yedeği değil",
     "Image link must start with https://": "Resim linki https:// ile başlamalı",
+    "Could not find the GIF on this page. Right-click the GIF and copy the image address instead.": "Bu sayfada GIF bulunamadı. GIF'e sağ tıklayıp \"Resim adresini kopyala\"yı kullan.",
     "Image link is too long": "Resim linki çok uzun",
     "The end must be after the start": "Bitiş, başlangıçtan sonra olmalı",
     "Sound not found": "Ses bulunamadı",
@@ -803,6 +804,9 @@
     if (consentValue() === 'all') try { localStorage.setItem(key, value); } catch {}
   }
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  // Sliders paint their filled part from --p (Chrome and Safari have no progress pseudo-element).
+  const syncRange = (el) => el.style.setProperty('--p', ((el.value - el.min) / (el.max - el.min || 1)) * 100 + '%');
+  document.addEventListener('input', (e) => { if (e.target.type === 'range') syncRange(e.target); });
   let lang = 'en';
   try { lang = localStorage.getItem('lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en'); } catch {}
 
@@ -1251,6 +1255,7 @@
 
     if (!draggingVolume) {
       $('masterVolume').value = state.masterVolume;
+      syncRange($('masterVolume'));
       $('masterVal').textContent = Math.round(state.masterVolume * 100) + '%';
     }
     // Don't overwrite a settings field while the streamer is typing in it.
@@ -1438,6 +1443,7 @@
     showImagePreview(a.image);
     if (document.activeElement !== $('editVolume')) {
       $('editVolume').value = a.volume ?? 1;
+      syncRange($('editVolume'));
       $('editVolVal').textContent = Math.round((a.volume ?? 1) * 100) + '%';
     }
     $('editTts').checked = Boolean(a.tts);
