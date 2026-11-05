@@ -1,7 +1,36 @@
 {
-  "name": "kick-sound-alerts",
+  "name": "audiobounty",
   "version": "1.0.0",
-  "description": "Play sounds in OBS when viewers redeem Kick channel point rewards",
+  "description": "Self-hosted Kick sound alerts and text-to-speech for OBS: viewers redeem channel point rewards and a sound plays on stream",
+  "keywords": [
+    "kick",
+    "kick.com",
+    "kick-api",
+    "obs",
+    "obs-studio",
+    "obs-overlay",
+    "browser-source",
+    "sound-alerts",
+    "stream-alerts",
+    "channel-points",
+    "text-to-speech",
+    "tts",
+    "streaming",
+    "livestream",
+    "streamer-tools",
+    "self-hosted",
+    "myinstants"
+  ],
+  "homepage": "https://github.com/EmreSarikaya35/Audiobounty-V2#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EmreSarikaya35/Audiobounty-V2.git"
+  },
+  "bugs": {
+    "url": "https://github.com/EmreSarikaya35/Audiobounty-V2/issues"
+  },
+  "author": "Emre Sarıkaya",
+  "license": "MIT",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -9,6 +38,5 @@
   },
   "engines": {
     "node": ">=18"
-  },
-  "license": "MIT"
+  }
 }

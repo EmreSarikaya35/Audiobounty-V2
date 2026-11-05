@@ -1,8 +1,21 @@
+<div align="center">
+
 # AudioBounty
 
-Let viewers play sounds on stream with [Kick](https://kick.com) channel points, and have their messages read aloud.
+**Kick sound alerts and text-to-speech for OBS. Self-hosted, free and open source.**
 
-[Example Website](https://audio.mrkaffin.com/)
+Viewers redeem [Kick](https://kick.com) channel point rewards and a sound plays on your stream, or their message is read aloud.
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-53fc18)](LICENSE)
+[![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-53fc18)](package.json)
+[![Zero dependencies](https://img.shields.io/badge/dependencies-0-53fc18)](package.json)
+[![Official Kick API](https://img.shields.io/badge/Kick-official%20API-53fc18)](https://docs.kick.com)
+
+[**Live site**](https://audio.mrkaffin.com/) · [Self-host it](#self-hosting) · [Türkçe](#türkçe)
+
+<img src="docs/screenshots/dashboard-dark.jpg" alt="AudioBounty dashboard: OBS status, sound reward cards and statistics" width="820">
+
+</div>
 
 You host it once. Streamers log in with Kick, add their sounds and paste one link into OBS. They don't install anything.
 
@@ -17,6 +30,17 @@ You host it once. Streamers log in with Kick, add their sounds and paste one lin
 - **Multi-streamer.** One deployment serves any number of channels.
 - **Official Kick API.** OAuth 2.1 login, channel reward management and signed webhooks. No scraping, no unofficial sockets.
 - **No dependencies.** Plain Node.js, no `npm install`.
+
+### Screenshots
+
+| | |
+|---|---|
+| <img src="docs/screenshots/overlay-card.jpg" alt="The on-stream card in OBS with the viewer's name, the reward and their message"> | <img src="docs/screenshots/settings-dark.jpg" alt="Settings: card position, style, size and colour, and the public sound list"> |
+| The card viewers see on stream | Card style, public sound list and more |
+| <img src="docs/screenshots/stats-dark.jpg" alt="Statistics: redemptions, points, a 30-day chart and top rewards"> | <img src="docs/screenshots/public-dark.jpg" alt="Public sound list page where viewers can listen to every reward"> |
+| Statistics | Public sound list for your viewers |
+| <img src="docs/screenshots/dashboard-light.jpg" alt="Dashboard in light mode"> | <img src="docs/screenshots/landing-light.jpg" alt="Landing page with Log in with Kick"> |
+| Light mode | Log in with Kick |
 
 ## How it works
 
@@ -369,8 +393,13 @@ lib/kick.js               Kick OAuth, API client and webhook signature verificat
 lib/store.js              JSON file storage (data/users/*.json, data/sounds/<id>/)
 public/index.html         Landing page and streamer dashboard
 public/admin.html         Admin panel (/admin)
-public/style.css          Shared styles for the dashboard and admin panel
+public/style.css          Shared styles for every page
+public/glass.js           Liquid Glass refraction, lenses and press effects
 public/overlay.html       OBS browser source: queue, on-stream card, text-to-speech
+public/channel.html       Public sound list (/c/<name>)
+public/legal.html         Terms, privacy notice and cookie policy (/legal)
+public/bg-*.avif|jpg      Background images for the dark and light themes
+docs/                     README screenshots and the GitHub social preview image
 .env.example              Settings template
 Dockerfile                App image
 docker-compose.yml        App + Cloudflare Tunnel
@@ -378,6 +407,18 @@ docker-compose.caddy.yml  App + Caddy (alternative)
 Caddyfile                 Caddy config for the alternative setup
 deploy.sh                 Upload and rebuild from your machine
 ```
+
+## Türkçe
+
+**AudioBounty**, Kick yayıncıları için ücretsiz ve açık kaynak bir **kanal puanı ses uyarısı** ve **metin okuma (TTS)** aracıdır. İzleyiciler Kick'te kanal puanıyla bir ödül kullandığında OBS'te ses çalar ya da yazdıkları mesaj sesli okunur.
+
+- Kick ile giriş yap, ödül adı, bedel ve ses seç: ödül Kick kanalında otomatik oluşur.
+- Kendi ses dosyanı yükle ya da myinstants.com'dan seç; bir ödüle 10'a kadar ses ekleyip rastgele çaldır, sesi dalga formu üzerinde kırp.
+- Tek bir linki OBS'e tarayıcı kaynağı olarak ekle, başka bir şey kurman gerekmez.
+- Canlı kuyruk, sessize alma, istatistikler, herkese açık ses listesi, yedekleme ve Türkçe arayüz.
+- Kendi sunucunda çalıştır: tek sunucu sınırsız yayıncıya hizmet verir, resmi Kick API'si kullanılır, hiçbir bağımlılık yoktur.
+
+Kurulum için [Self-hosting](#self-hosting) bölümüne bak.
 
 ## License
 
