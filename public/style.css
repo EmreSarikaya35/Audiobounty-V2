@@ -6,6 +6,9 @@
   --glass: rgba(40,40,40,.62); --glass-active: rgba(70,70,70,.62); --edge: rgba(255,255,255,.08);
   --rim: rgba(255,255,255,.07); --drop: transparent; --highlight: rgba(235,235,245,.13);
   --track: rgba(235,235,245,.3); --rail: rgba(255,255,255,.1); --seg-thumb: rgba(235,235,245,.3);
+  --bar: rgba(30,30,32,.5); --rim-light: rgba(255,255,255,.32);
+  --card: rgba(38,44,40,.42); --card-hover: rgba(52,60,55,.5);
+  --wall: url(/bg-dark.jpg); --wall: image-set(url(/bg-dark.avif) type("image/avif"), url(/bg-dark.jpg) type("image/jpeg"));
   --accent: #53fc18; --accent-hover: #6dff3a; --accent-ink: #061002; --accent-text: #53fc18; --accent-soft: rgba(83,252,24,.13);
   --danger: #ff5a5f; --danger-soft: rgba(255,90,95,.13); --warn: #ffb547; --warn-soft: rgba(255,181,71,.12);
   --material: rgba(18,18,20,.7); --material-strong: rgba(28,28,31,.86); --material-edge: rgba(255,255,255,.13);
@@ -13,7 +16,7 @@
   --shadow-sm: inset 0 0 0 .5px rgba(255,255,255,.08);
   --shadow-lg: 0 12px 40px rgba(0,0,0,.38), inset 0 0 0 .5px rgba(255,255,255,.13);
   --radius: 22px;
-  --press: scale(.97);
+  --press: scale(1.07); /* Liquid Glass controls swell under the finger */
 }
 :root { color-scheme: dark; }
 :root[data-theme="light"] {
@@ -24,6 +27,9 @@
     --glass: rgba(255,255,255,.6); --glass-active: rgba(236,236,240,.85); --edge: rgba(0,0,0,.08);
     --rim: rgba(255,255,255,.9); --drop: rgba(0,0,0,.06); --highlight: rgba(60,60,67,.09);
     --track: rgba(59,59,66,.3); --rail: rgba(0,0,0,.1); --seg-thumb: #ffffff;
+    --bar: rgba(255,255,255,.5); --rim-light: rgba(255,255,255,.95);
+    --card: rgba(255,255,255,.6); --card-hover: rgba(255,255,255,.75);
+    --wall: url(/bg-light.jpg); --wall: image-set(url(/bg-light.avif) type("image/avif"), url(/bg-light.jpg) type("image/jpeg"));
     --accent-text: #1b7d00; --accent-soft: rgba(55,170,10,.12);
     --danger: #d92b30; --danger-soft: rgba(217,43,48,.09); --warn: #a35f00; --warn-soft: rgba(255,170,40,.16);
     --material: rgba(246,246,249,.72); --material-strong: rgba(250,250,252,.86); --material-edge: rgba(0,0,0,.08);
@@ -55,13 +61,19 @@ button, .btn {
   transition: transform 160ms cubic-bezier(.2,.9,.3,1), background-color 200ms;
 }
 @media (hover: hover) and (pointer: fine) { button:hover, .btn:hover { background: var(--glass-active); } }
-button:active, .btn:active { transform: var(--press); background: var(--glass-active); transition-duration: 0s; }
+button, .btn { transition: transform 420ms cubic-bezier(.3,1.5,.5,1), background-color 200ms; }
+button:active, .btn:active {
+  transform: var(--press); background-color: var(--glass-active); transition-duration: 220ms, 0s;
+  /* a soft light where the finger is (glass.js sets --gx/--gy) */
+  background-image: radial-gradient(circle 7rem at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,.16), rgba(255,255,255,.05) 50%, transparent);
+}
+.wide-btn:active, .activity:active, .now-playing:active { transform: scale(1.015); }
 button:disabled { opacity: .35; cursor: default; transform: none; }
 :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 /* Filled: the accent, lighter on hover and darker while pressed */
 .primary { background: var(--accent); color: var(--accent-ink); font-weight: 650; box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 3px rgba(0,0,0,.15); }
 @media (hover: hover) and (pointer: fine) { .primary:hover { background: color-mix(in srgb, var(--accent) 88%, #fff); } }
-.primary:active { background: color-mix(in srgb, var(--accent) 85%, #000); }
+.primary:active { background-color: color-mix(in srgb, var(--accent) 85%, #000); }
 .ghost { background: transparent; color: var(--muted); box-shadow: none; }
 @media (hover: hover) and (pointer: fine) { .ghost:hover { background: var(--fill); color: var(--text); } }
 .danger { color: var(--danger); }
@@ -79,8 +91,8 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 input::placeholder, textarea::placeholder { color: var(--muted); }
 
 /* Slider: a thin rail filled up to the thumb (--p, kept in sync by the page), and a white glass capsule thumb */
-input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 1.75rem; margin: 0; background: transparent; cursor: pointer; --p: 50%; }
-input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(var(--accent) 0 0) 0 / var(--p) 100% no-repeat, var(--rail); }
+input[type=range] { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 1.75rem; margin: 0; background: transparent; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(var(--accent) 0 0) 0 / calc((100% - 2.25rem) * var(--pp, .5) + 1.125rem) 100% no-repeat, var(--rail); }
 input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--rail); }
 input[type=range]::-moz-range-progress { height: 6px; border-radius: 3px; background: var(--accent); }
 input[type=range]::-webkit-slider-thumb {
@@ -111,6 +123,29 @@ input.switch:checked::after { transform: translateX(1.25rem); }
 input.switch:active::after { width: 2.625rem; }
 input.switch:checked:active::after { transform: translateX(.875rem); }
 
+/* With glass.js the thumb is an element, so holding it can lift it into a lens over the track */
+.switch-wrap, .range-wrap { position: relative; flex: none; }
+.switch-wrap { display: inline-flex; }
+.range-wrap { display: block; }
+.switch-wrap input.switch::after { content: none; }
+.switch-thumb, .range-thumb {
+  position: absolute; border-radius: 99px; pointer-events: none;
+  box-shadow: 0 6px 20px rgba(0,0,0,.2), inset 0 0 0 1.5px rgba(255,255,255,.5), inset 0 2px 1px rgba(255,255,255,.45), inset 2px 6px 18px rgba(0,0,0,.09), inset -2px -6px 18px rgba(255,255,255,.16);
+  transition: transform 420ms cubic-bezier(.3,1.35,.5,1);
+}
+/* the lens filter (glass.js puts it in --lens) only runs while the thumb is held */
+.lifted .switch-thumb, .lifted .range-thumb { -webkit-backdrop-filter: var(--lens, blur(.5px) saturate(1.5)); backdrop-filter: var(--lens, blur(.5px) saturate(1.5)); }
+.switch-thumb i, .range-thumb i { position: absolute; inset: 0; border-radius: inherit; background: #fff; transition: opacity 220ms; }
+.lifted .switch-thumb i, .lifted .range-thumb i { opacity: .12; transition-duration: 120ms; }
+.switch-thumb { top: 2px; left: 2px; width: 2.25rem; height: calc(1.625rem - 4px); }
+input.switch:checked + .switch-thumb { transform: translateX(1.25rem); }
+.switch-wrap.lifted .switch-thumb { transform: scale(1.5); }
+.switch-wrap.lifted input.switch:checked + .switch-thumb { transform: translateX(1.25rem) scale(1.5); }
+.range-wrap input[type=range]::-webkit-slider-thumb { opacity: 0; }
+.range-wrap input[type=range]::-moz-range-thumb { opacity: 0; }
+.range-thumb { top: 50%; left: calc((100% - 2.25rem) * var(--pp, .5)); width: 2.25rem; height: 1.5rem; margin-top: -.75rem; }
+.range-wrap.lifted .range-thumb { transform: scale(1.65); }
+
 /* Landing */
 .top-right { position: relative; z-index: 6; display: flex; justify-content: flex-end; align-items: center; gap: .25rem; padding-top: 1rem; }
 .wordmark { margin-right: auto; font-weight: 750; font-size: 1.0625rem; letter-spacing: -.02em; }
@@ -130,19 +165,21 @@ input.switch:checked:active::after { transform: translateX(.875rem); }
 .how span { color: var(--muted); font-size: .875rem; }
 .how i { font-style: normal; color: var(--accent-text); font-weight: 750; margin-right: .4rem; }
 
-/* Header: translucent material, content scrolls under it */
+/* Header: a floating Liquid Glass capsule; content scrolls under it and bends at its rim (glass.js) */
 header.top {
-  position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: .6rem;
-  margin: 0 -1rem 1.25rem; padding: .75rem 1rem; padding-top: max(.75rem, env(safe-area-inset-top));
-  background: var(--material); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  position: sticky; top: max(.6rem, env(safe-area-inset-top)); z-index: 5; display: flex; align-items: center; gap: .4rem;
+  margin: .6rem 0 1.25rem; padding: .4rem .5rem .4rem .45rem; border-radius: 999px;
+  background: var(--bar); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: inset 0 0 0 .5px var(--edge), 0 8px 32px rgba(0,0,0,.22);
 }
-/* Scroll edge: a soft fade only once content is actually underneath */
-header.top::after {
-  content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 14px; pointer-events: none;
-  background: linear-gradient(var(--material), transparent); opacity: 0; transition: opacity 200ms;
+/* Specular rim: a 1px ring, bright where the light hits the top left and bottom right */
+header.top::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: linear-gradient(135deg, var(--rim-light), transparent 35%, transparent 65%, color-mix(in srgb, var(--rim-light) 60%, transparent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
 }
-header.top.scrolled::after { opacity: 1; }
-header.top img { flex: none; width: 2rem; height: 2rem; border-radius: 50%; background: var(--fill); object-fit: cover; }
+header.top .ghost { color: var(--text); }
+header.top img { flex: none; width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--fill); object-fit: cover; }
 header.top .name { font-weight: 650; letter-spacing: -.01em; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .brand { font-size: 1.25rem; margin-right: .1rem; }
 
@@ -240,13 +277,13 @@ ul.log li.enter { animation-name: drop; }
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 4; min-width: 13rem; padding: 6px;
   background: var(--material-strong); -webkit-backdrop-filter: blur(22px) saturate(190%); backdrop-filter: blur(22px) saturate(190%);
   border: 0; border-radius: 20px; box-shadow: var(--shadow-lg);
-  transform-origin: top right; transform: scale(.85); opacity: 0; visibility: hidden;
-  transition: transform 280ms cubic-bezier(.2,.9,.3,1), opacity 160ms, visibility 0s 280ms;
+  transform-origin: calc(100% - 1.1rem) -1.1rem; transform: scale(.2, .15); opacity: 0; visibility: hidden; filter: blur(6px);
+  transition: transform 260ms cubic-bezier(.4,0,.6,1), opacity 180ms, filter 200ms, visibility 0s 260ms;
 }
-.menu-wrap.open .menu { transform: none; opacity: 1; visibility: visible; transition: transform 320ms cubic-bezier(.2,.9,.3,1), opacity 120ms; }
+.menu-wrap.open .menu { transform: none; opacity: 1; visibility: visible; filter: none; transition: transform 520ms cubic-bezier(.3,1.25,.5,1), opacity 140ms, filter 260ms; }
 .menu button { width: 100%; min-height: 2.25rem; justify-content: flex-start; background: transparent; box-shadow: none; border-radius: 14px; padding: .4rem .75rem; font-weight: 400; }
 .menu button:hover, .menu button:focus-visible { background: var(--highlight); outline: none; }
-.menu button:active { transform: none; }
+.menu button:active { transform: none; background-image: none; }
 .menu hr { border: 0; border-top: .5px solid var(--line); margin: 7px 11px; }
 
 .swatches { display: flex; flex-wrap: wrap; gap: .55rem; }
@@ -316,7 +353,7 @@ dialog.sheet .scrim { position: absolute; inset: 0; background: var(--scrim); op
 dialog.sheet .panel {
   position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: min(34rem, calc(100vw - 2rem)); max-height: min(44rem, calc(100vh - 3rem));
   display: flex; flex-direction: column; padding: 0 1rem 1rem;
-  background: var(--material-strong); -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%);
+  background: var(--material-strong); -webkit-backdrop-filter: blur(20px) saturate(170%); backdrop-filter: blur(20px) saturate(170%);
   border: 0; border-radius: 30px; box-shadow: var(--shadow-lg); opacity: 0; will-change: transform, opacity;
 }
 .sheet-grab { display: flex; align-items: center; gap: .5rem; padding: 1rem 0 .75rem; touch-action: none; }
@@ -351,9 +388,18 @@ dialog.sheet .seg { margin-top: .75rem; }
   transition: transform 420ms cubic-bezier(.3,1.2,.5,1), width 420ms cubic-bezier(.3,1.2,.5,1), opacity 150ms;
 }
 .seg.has-on::before { opacity: 1; }
+/* Held: the pill swells past the control into a clear lens over the labels, follows the pointer, then settles */
+.seg.lifted::before {
+  z-index: 1; pointer-events: none; opacity: 1; background: rgba(255,255,255,.04);
+  transform: translateX(var(--pill-x, 0)) scale(1.22, 1.42);
+  box-shadow: 0 8px 22px rgba(0,0,0,.2), inset 0 0 0 1px rgba(255,255,255,.4), inset 0 2px 1px rgba(255,255,255,.35), inset -2px -6px 14px rgba(255,255,255,.12);
+  -webkit-backdrop-filter: var(--lens, blur(.5px) brightness(1.1) saturate(1.5)); backdrop-filter: var(--lens, blur(.5px) brightness(1.1) saturate(1.5));
+  transition: transform 300ms cubic-bezier(.3,1.4,.5,1), width 300ms cubic-bezier(.3,1.4,.5,1), opacity 120ms, background-color 160ms;
+}
+.seg.dragging::before { transition: transform 110ms cubic-bezier(.2,.9,.3,1), width 300ms; }
 .seg button { position: relative; min-height: 2rem; padding: .2rem 1rem; font-size: .8125rem; border-radius: 99px; background: transparent; box-shadow: none; color: var(--text); }
 .seg button:hover { background: transparent; }
-.seg button:active { transform: none; background: transparent; }
+.seg button:active { transform: none; background: transparent; background-image: none; }
 .seg button.on { font-weight: 600; }
 .mi-results { list-style: none; margin: .6rem 0 0; padding: 0; flex: 1; min-height: 6rem; overflow-y: auto; overscroll-behavior: contain; }
 .mi-results li { display: flex; align-items: center; gap: .5rem; padding: .4rem 0; border-bottom: 1px solid var(--line); }
@@ -463,6 +509,56 @@ dialog.sheet .seg { margin-top: .75rem; }
 dialog.sheet .inline-field .seg { flex: none; margin-top: 0; }
 .inline-field > .field-label { margin: 0; color: var(--text); font-size: .9375rem; letter-spacing: 0; }
 
+/* ---- Liquid Glass surfaces ----
+   The wallpaper is soft green ambient light (a heavily blurred photo, ~600 bytes), so the glass has something to
+   tint without competing with the content; cards, rows, banners and sheets are translucent panes with a rim. */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--wall) center / cover no-repeat, var(--bg);
+}
+/* No backdrop-filter on these: the wallpaper is only soft light, so a translucent tint looks the same as a blur
+   and costs nothing while scrolling */
+section.card, .reward, .activity, .empty-state, .banner, .how div {
+  position: relative; background-color: var(--card);
+  box-shadow: inset 0 0 0 .5px var(--edge), inset 0 1px 0 var(--rim), 0 10px 30px rgba(0,0,0,.14);
+}
+.banner.warn { --card: color-mix(in srgb, var(--warn) 22%, rgba(20,20,20,.6)); }
+.banner.err { --card: color-mix(in srgb, var(--danger) 22%, rgba(20,20,20,.6)); }
+.banner.info { --card: color-mix(in srgb, var(--accent) 18%, rgba(20,20,20,.6)); }
+:root[data-theme="light"] .banner.warn { --card: color-mix(in srgb, var(--warn) 18%, rgba(255,255,255,.7)); }
+:root[data-theme="light"] .banner.err { --card: color-mix(in srgb, var(--danger) 14%, rgba(255,255,255,.7)); }
+:root[data-theme="light"] .banner.info { --card: color-mix(in srgb, var(--accent) 16%, rgba(255,255,255,.7)); }
+@media (hover: hover) and (pointer: fine) { .activity:hover { background-color: var(--card-hover); } }
+.activity:active { background-color: var(--card-hover); }
+/* the same light ring as the header, on every pane */
+section.card::before, .reward::before, .activity::before, .empty-state::before, .banner::before, .how div::before, dialog.sheet .panel::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 1;
+  background: linear-gradient(135deg, var(--rim-light), transparent 32%, transparent 68%, color-mix(in srgb, var(--rim-light) 55%, transparent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+}
+/* Text straight on the wallpaper gets a soft halo so it stays readable over bright spots */
+.hero h1, .hero p, .legal-note, .section-head h2, .top-right, footer { text-shadow: 0 1px 14px var(--halo), 0 0 2px var(--halo); }
+.hero p, .legal-note, footer, .top-right .ghost { color: var(--text); }
+.hero p { opacity: .9; }
+:root { --halo: rgba(0,0,0,.55); }
+:root[data-theme="light"] { --halo: rgba(255,255,255,.8); }
+/* Panes are stacking contexts now; the status bar's menu must stay above the cards that follow it */
+.statusbar { z-index: 3; }
+dialog.sheet .panel { background: color-mix(in srgb, var(--material-strong) 80%, transparent); }
+
+/* Switch dragged by hand: the thumb follows the pointer and the track fills as it goes */
+.switch-wrap.dragging .switch-thumb { transition: none; }
+.switch-wrap.dragging input.switch { background: color-mix(in srgb, var(--accent) calc(var(--t, 0) * 100%), var(--track)); transition: none; }
+
+/* Liquid Glass off (Settings → Appearance): plain solid surfaces and no filters at all, the lightest for the GPU */
+:root.no-glass { --card: var(--surface); --card-hover: var(--surface-2); --bar: var(--surface); --material: var(--surface); --material-strong: var(--raised); --press: scale(.97); }
+.no-glass *, .no-glass *::before { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+.no-glass section.card::before, .no-glass .reward::before, .no-glass .activity::before,
+.no-glass .empty-state::before, .no-glass .banner::before, .no-glass .how div::before, .no-glass dialog.sheet .panel::before, .no-glass header.top::before { display: none; }
+.no-glass section.card, .no-glass .reward, .no-glass .activity, .no-glass .empty-state, .no-glass .banner, .no-glass .how div, .no-glass header.top { box-shadow: var(--shadow-sm); background-image: none; }
+.no-glass dialog.sheet .panel { background: var(--raised); }
+.no-glass button:active, .no-glass .btn:active { background-image: none; }
+
 @media (max-width: 640px) {
   .tiles b { font-size: 1.2rem; }
   .how { grid-template-columns: 1fr; }
@@ -496,7 +592,8 @@ dialog.sheet .inline-field .seg { flex: none; margin-top: 0; }
 }
 @media (prefers-reduced-transparency: reduce) {
   :root { --material: var(--surface); --material-strong: var(--raised); }
-  header.top, .menu, #toast, dialog.sheet .panel { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  header.top, .menu, #toast, dialog.sheet .panel, section.card, .reward, .activity, .empty-state, .banner { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+  :root, :root[data-theme="light"] { --card: var(--surface); --card-hover: var(--surface-2); --bar: var(--surface); }
 }
 @media (prefers-contrast: more) {
   :root { --line: currentColor; --muted: var(--text); }

@@ -57,6 +57,7 @@
 </style>
 </head>
 <body>
+<script>try { if (localStorage.getItem('glass') === 'off') document.documentElement.classList.add('no-glass'); } catch {}</script>
 <main>
   <header class="top">
     <span class="brand" aria-hidden="true">🔊</span>
@@ -385,5 +386,6 @@
   load();
   setInterval(() => { if (!document.hidden) load(); }, 10000);
 </script>
+<script src="/glass.js"></script>
 </body>
 </html>

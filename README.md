@@ -100,6 +100,7 @@ Off by default. When turned on in Settings, `/c/<kick name>` lists the streamer'
 - Turkish and English, from the button in the header (defaults to the browser's language).
 - Automatic, light or dark theme from the theme button in the header, also available before logging in.
 - Long reward lists show the first 6 with **Show all**.
+- Liquid Glass look after [Glisse](https://glisse.kelvinzhang.ca/): a soft coloured backdrop under translucent glass cards, rows, banners and sheets with a specular rim, glass capsule controls that swell, glow and stretch towards the pointer while held, switches you can drag by hand, a floating glass header, menus that grow out of their button, slider and switch thumbs that turn into magnifying lenses while held, and segmented controls whose selection lifts into a lens you can drag to another option. `public/glass.js` draws a displacement map for each glass element and uses it in an SVG filter, so content behind the glass bends at its rim; this needs Chromium, other browsers get frosted glass. To stay light on the GPU, nothing animates in the background, only a few small panes refract, and lenses are only computed while held. Streamers can turn Liquid Glass off in **Settings → Appearance**, which removes every glass filter.
 - Respects the system's reduced motion, reduced transparency and increased contrast settings.
 
 ### Terms, privacy and cookies

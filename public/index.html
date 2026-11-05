@@ -46,6 +46,7 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+<script>try { if (localStorage.getItem('glass') === 'off') document.documentElement.classList.add('no-glass'); } catch {}</script>
 <main>
 
   <!-- Logged out -->
@@ -303,6 +304,12 @@
       <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
     </div>
     <div class="sheet-body">
+      <h3 class="group-title" data-i18n>Appearance</h3>
+      <div class="group">
+        <label class="check row-check"><span data-i18n>Liquid Glass effects</span><input type="checkbox" class="switch" role="switch" id="glassToggle"></label>
+        <p class="hint" data-i18n>Glass, light bending and lenses. Turn it off to save battery and keep older laptops cool.</p>
+      </div>
+
       <h3 class="group-title" data-i18n>Sound</h3>
       <div class="group">
         <div class="field">
@@ -520,6 +527,11 @@
     "Accept all": "Tümünü kabul et",
     "Cookie choice saved": "Çerez tercihin kaydedildi",
     "Storage": "Depolama",
+    "Appearance": "Görünüm",
+    "Liquid Glass effects": "Liquid Glass efektleri",
+    "Glass, light bending and lenses. Turn it off to save battery and keep older laptops cool.": "Cam, ışık kırılması ve mercekler. Pil tasarrufu için ve eski dizüstü bilgisayarlar ısınmasın diye kapatabilirsin.",
+    "Liquid Glass on": "Liquid Glass açık",
+    "Liquid Glass off": "Liquid Glass kapalı",
     "Statistics": "İstatistikler",
     "Sounds": "Sesler",
     "+ Add file": "+ Dosya ekle",
@@ -804,8 +816,8 @@
     if (consentValue() === 'all') try { localStorage.setItem(key, value); } catch {}
   }
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
-  // Sliders paint their filled part from --p (Chrome and Safari have no progress pseudo-element).
-  const syncRange = (el) => el.style.setProperty('--p', ((el.value - el.min) / (el.max - el.min || 1)) * 100 + '%');
+  // Sliders paint their filled part and place the glass thumb (glass.js) from --pp, 0 to 1.
+  const syncRange = (el) => (el.closest('.range-wrap') || el).style.setProperty('--pp', (el.value - el.min) / (el.max - el.min || 1));
   document.addEventListener('input', (e) => { if (e.target.type === 'range') syncRange(e.target); });
   let lang = 'en';
   try { lang = localStorage.getItem('lang') || (navigator.language.startsWith('tr') ? 'tr' : 'en'); } catch {}
@@ -1790,6 +1802,13 @@
     toast(t(`Restored ${added} rewards, skipped ${skipped + failed.length}.`) + (failed.length ? ' ' + failed.join(' · ') : ''), Boolean(failed.length));
   }));
 
+  // Liquid Glass on/off; glass.js applies it and remembers it like the theme.
+  $('glassToggle').checked = !document.documentElement.classList.contains('no-glass');
+  $('glassToggle').addEventListener('change', (e) => {
+    window.liquidGlass?.set(e.target.checked);
+    toast(e.target.checked ? 'Liquid Glass on' : 'Liquid Glass off');
+  });
+
   $('settingsOpen').addEventListener('click', (e) => {
     settingsSheet.open(e.currentTarget);
     for (const seg of document.querySelectorAll('[data-card]')) movePill(seg);
@@ -1927,8 +1946,8 @@
     if (!b) return;
     const v = b.dataset.consent;
     document.cookie = `consent=${v}; Path=/; Max-Age=15552000; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
-    if (v === 'all') { savePref('lang', lang); savePref('theme', themePref); }
-    else try { localStorage.removeItem('lang'); localStorage.removeItem('theme'); } catch {}
+    if (v === 'all') { savePref('lang', lang); savePref('theme', themePref); savePref('glass', document.documentElement.classList.contains('no-glass') ? 'off' : 'on'); }
+    else try { localStorage.removeItem('lang'); localStorage.removeItem('theme'); localStorage.removeItem('glass'); } catch {}
     $('consent').hidden = true;
     if (v === 'none' && me) { // a session cookie is not allowed any more
       await fetch('/auth/logout', { method: 'POST' });
@@ -1968,5 +1987,6 @@
     pollTimer = setTimeout(poll, 4000);
   }).catch(showLanding);
 </script>
+<script src="/glass.js"></script>
 </body>
 </html>

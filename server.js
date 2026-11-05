@@ -61,6 +61,8 @@ const STATIC_TYPES = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.ico': 'image/x-icon',
+  '.avif': 'image/avif',
+  '.jpg': 'image/jpeg',
 };
 
 if (!process.env.KICK_CLIENT_ID || !process.env.KICK_CLIENT_SECRET) {
@@ -449,7 +451,8 @@ function sendFile(res, file, type) {
       'Content-Type': type,
       'Content-Length': st.size,
       'X-Content-Type-Options': 'nosniff',
-      'Cache-Control': type.startsWith('audio/') ? 'private, max-age=31536000, immutable' : 'no-cache',
+      // Wallpapers rarely change, so browsers keep them for a week instead of asking again on every visit.
+      'Cache-Control': type.startsWith('audio/') ? 'private, max-age=31536000, immutable' : type.startsWith('image/') ? 'public, max-age=604800' : 'no-cache',
     });
     fs.createReadStream(file).pipe(res);
   });
