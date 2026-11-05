@@ -1,5 +1,0 @@
-alerts.example.com {
-	reverse_proxy app:3000 {
-		flush_interval -1
-	}
-}

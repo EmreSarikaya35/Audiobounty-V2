@@ -8,7 +8,7 @@
   --track: rgba(235,235,245,.3); --rail: rgba(255,255,255,.1); --seg-thumb: rgba(235,235,245,.3);
   --bar: rgba(30,30,32,.5); --rim-light: rgba(255,255,255,.32);
   --card: rgba(38,44,40,.42); --card-hover: rgba(52,60,55,.5);
-  --wall: url(/bg-dark.jpg); --wall: image-set(url(/bg-dark.avif) type("image/avif"), url(/bg-dark.jpg) type("image/jpeg"));
+  --wall: url("data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUIAAAD5bWV0YQAAAAAAAAAvaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAFBpY3R1cmVIYW5kbGVyAAAAAA5waXRtAAAAAAABAAAAHmlsb2MAAAAARAAAAQABAAAAAQAAASEAAAFFAAAAKGlpbmYAAAAAAAEAAAAaaW5mZQIAAAAAAQAAYXYwMUNvbG9yAAAAAGppcHJwAAAAS2lwY28AAAAUaXNwZQAAAAAAAAHgAAAB4AAAABBwaXhpAAAAAAMKCgoAAAAMYXYxQ4EBTAAAAAATY29scm5jbHgAAgACAAWAAAAAF2lwbWEAAAAAAAAAAQABBAECgwQAAAFNbWRhdAoOAgAADWI7/fOr50CAgWEysgIQAI0AgQQQQEecAnC45VZ8pB3N4TVwdVxHqxe+t28mlD/LGNQAoBTzUN386Fj4TeTpT14cFAHVTSIQJ0/Qj9axo/NuwpA/n0X3SCwYruBhPSKMvtUP8T+XC5PuxSWN7S+rXnT/DQQjcpy0MIQzYUr30r6q65S0LY2p1zDSnJDIH6uSW9fFGqGEFIkbAlc7LgZ/XzA2GiyWBykj6aL76jNwxnq/OGLHXPQhN7Svj1WEgd9+5A1wqAvj3O6AQBZ1B9rE38OkIrp5OM7JtYVNBC+9LSZFleuEVty/HL8nR4PcGLMlgmFTC7+FhNcoq0crjRAQvP2p1PG12YDZc+4ZXFWLHDfyida7BqqYje1XbGIpxFL3dtKOgqUZs1x18fO+GFwg5XLQMsDCTZbQhpwbSxyY6YA=");
   --accent: #53fc18; --accent-hover: #6dff3a; --accent-ink: #061002; --accent-text: #53fc18; --accent-soft: rgba(83,252,24,.13);
   --danger: #ff5a5f; --danger-soft: rgba(255,90,95,.13); --warn: #ffb547; --warn-soft: rgba(255,181,71,.12);
   --material: rgba(18,18,20,.7); --material-strong: rgba(28,28,31,.86); --material-edge: rgba(255,255,255,.13);
@@ -29,7 +29,7 @@
     --track: rgba(59,59,66,.3); --rail: rgba(0,0,0,.1); --seg-thumb: #ffffff;
     --bar: rgba(255,255,255,.5); --rim-light: rgba(255,255,255,.95);
     --card: rgba(255,255,255,.6); --card-hover: rgba(255,255,255,.75);
-    --wall: url(/bg-light.jpg); --wall: image-set(url(/bg-light.avif) type("image/avif"), url(/bg-light.jpg) type("image/jpeg"));
+    --wall: url("data:image/avif;base64,AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUIAAAD5bWV0YQAAAAAAAAAvaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAFBpY3R1cmVIYW5kbGVyAAAAAA5waXRtAAAAAAABAAAAHmlsb2MAAAAARAAAAQABAAAAAQAAASEAAAFCAAAAKGlpbmYAAAAAAAEAAAAaaW5mZQIAAAAAAQAAYXYwMUNvbG9yAAAAAGppcHJwAAAAS2lwY28AAAAUaXNwZQAAAAAAAAHgAAAB4AAAABBwaXhpAAAAAAMKCgoAAAAMYXYxQ4EBTAAAAAATY29scm5jbHgAAgACAAWAAAAAF2lwbWEAAAAAAAAAAQABBAECgwQAAAFKbWRhdAoOAgAADWI7/fOr50CAgWEyrwIQAI0AgQQQQEecAgInNadoMsS/EqJLGg4sV+KiTUSOBURzg8ipO3js9/qntKZswaNoJsVfjE8827MYzbrnTHMQHWAyfDxGqw74SSMU2KPaeDD6RRlDndRWvTdj+Y7i+9ZmCPAYJ++XL9Vwb+kQ7d8gHofgfrp0CQES95PnnZU9aJA8wXrnEK8RLLtRL6L4lU5iWEzY6w/e343nTNj64JXpzzjggP6sXK0R1qzLOAJmIldHNx70Vigxm6vcG3yokuQUjf/qNdSDI4TsOw6FPlQtUKM3ojvDlbKyW4oRF7tpuu42fTsd/FpydQ9pcY1HjCnavpqp66MShLnBaqbBCqKA4LJIEr0kjRKrE8asbrPkQizM7OuMUknWyZsK/Ur/7MieMYB00LCkb9Pst9uFe7A=");
     --accent-text: #1b7d00; --accent-soft: rgba(55,170,10,.12);
     --danger: #d92b30; --danger-soft: rgba(217,43,48,.09); --warn: #a35f00; --warn-soft: rgba(255,170,40,.16);
     --material: rgba(246,246,249,.72); --material-strong: rgba(250,250,252,.86); --material-edge: rgba(0,0,0,.08);
@@ -64,7 +64,7 @@ button, .btn {
 button, .btn { transition: transform 420ms cubic-bezier(.3,1.5,.5,1), background-color 200ms; }
 button:active, .btn:active {
   transform: var(--press); background-color: var(--glass-active); transition-duration: 220ms, 0s;
-  /* a soft light where the finger is (glass.js sets --gx/--gy) */
+  /* a soft light where the finger is (the glass script sets --gx/--gy) */
   background-image: radial-gradient(circle 7rem at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,.16), rgba(255,255,255,.05) 50%, transparent);
 }
 .wide-btn:active, .activity:active, .now-playing:active { transform: scale(1.015); }
@@ -123,7 +123,7 @@ input.switch:checked::after { transform: translateX(1.25rem); }
 input.switch:active::after { width: 2.625rem; }
 input.switch:checked:active::after { transform: translateX(.875rem); }
 
-/* With glass.js the thumb is an element, so holding it can lift it into a lens over the track */
+/* With the glass script the thumb is an element, so holding it can lift it into a lens over the track */
 .switch-wrap, .range-wrap { position: relative; flex: none; }
 .switch-wrap { display: inline-flex; }
 .range-wrap { display: block; }
@@ -133,7 +133,7 @@ input.switch:checked:active::after { transform: translateX(.875rem); }
   box-shadow: 0 6px 20px rgba(0,0,0,.2), inset 0 0 0 1.5px rgba(255,255,255,.5), inset 0 2px 1px rgba(255,255,255,.45), inset 2px 6px 18px rgba(0,0,0,.09), inset -2px -6px 18px rgba(255,255,255,.16);
   transition: transform 420ms cubic-bezier(.3,1.35,.5,1);
 }
-/* the lens filter (glass.js puts it in --lens) only runs while the thumb is held */
+/* the lens filter (the glass script puts it in --lens) only runs while the thumb is held */
 .lifted .switch-thumb, .lifted .range-thumb { -webkit-backdrop-filter: var(--lens, blur(.5px) saturate(1.5)); backdrop-filter: var(--lens, blur(.5px) saturate(1.5)); }
 .switch-thumb i, .range-thumb i { position: absolute; inset: 0; border-radius: inherit; background: #fff; transition: opacity 220ms; }
 .lifted .switch-thumb i, .lifted .range-thumb i { opacity: .12; transition-duration: 120ms; }
@@ -165,7 +165,7 @@ input.switch:checked + .switch-thumb { transform: translateX(1.25rem); }
 .how span { color: var(--muted); font-size: .875rem; }
 .how i { font-style: normal; color: var(--accent-text); font-weight: 750; margin-right: .4rem; }
 
-/* Header: a floating Liquid Glass capsule; content scrolls under it and bends at its rim (glass.js) */
+/* Header: a floating Liquid Glass capsule; content scrolls under it and bends at its rim (the glass script) */
 header.top {
   position: sticky; top: max(.6rem, env(safe-area-inset-top)); z-index: 5; display: flex; align-items: center; gap: .4rem;
   margin: .6rem 0 1.25rem; padding: .4rem .5rem .4rem .45rem; border-radius: 999px;
@@ -558,6 +558,28 @@ dialog.sheet .panel { background: color-mix(in srgb, var(--material-strong) 80%,
 .no-glass section.card, .no-glass .reward, .no-glass .activity, .no-glass .empty-state, .no-glass .banner, .no-glass .how div, .no-glass header.top { box-shadow: var(--shadow-sm); background-image: none; }
 .no-glass dialog.sheet .panel { background: var(--raised); }
 .no-glass button:active, .no-glass .btn:active { background-image: none; }
+
+/* Terms, privacy and cookies (/legal) */
+.legal .wordmark { color: inherit; text-decoration: none; }
+.legal-nav { position: sticky; top: 0; z-index: 5; margin: 0 -1rem 1.5rem; padding: .75rem 1rem; display: flex; gap: .5rem; align-items: center;
+  background: var(--material); -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); }
+.legal-nav .seg { margin-right: auto; }
+.legal-nav .seg a { position: relative; display: inline-flex; align-items: center; min-height: 1.875rem; padding: .2rem .8rem; font-size: .8125rem; border-radius: 8px; color: var(--muted); text-decoration: none; }
+.legal-nav .seg a:hover { color: var(--text); }
+.legal article { position: relative; background: var(--card); box-shadow: inset 0 0 0 .5px var(--edge), inset 0 1px 0 var(--rim), 0 10px 30px rgba(0,0,0,.14); border-radius: var(--radius); padding: 1.5rem 1.4rem; margin-bottom: 1.25rem; scroll-margin-top: 4.5rem; line-height: 1.6; font-size: .9375rem; }
+.legal article h1 { font-size: 1.625rem; letter-spacing: -.025em; line-height: 1.15; margin-bottom: .25rem; }
+.legal article .updated { color: var(--muted); font-size: .8125rem; margin: 0 0 1.25rem; }
+.legal article h2 { font-size: 1.0625rem; letter-spacing: -.01em; margin: 1.5rem 0 .4rem; }
+.legal article p, .legal article li { color: var(--text); }
+.legal article ul { padding-left: 1.2rem; margin: .4rem 0; }
+.legal article li { margin-bottom: .25rem; }
+.legal .tbl { overflow-x: auto; margin: .6rem 0; }
+.legal table { border-collapse: collapse; width: 100%; font-size: .8125rem; }
+.legal th, .legal td { text-align: left; padding: .5rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.legal th { color: var(--muted); font-weight: 600; }
+.legal code { font-size: .85em; background: var(--fill); padding: .05rem .35rem; border-radius: 5px; }
+.legal [data-lang] { display: none; }
+html[lang="tr"] .legal [data-lang="tr"], html[lang="en"] .legal [data-lang="en"] { display: block; }
 
 @media (max-width: 640px) {
   .tiles b { font-size: 1.2rem; }

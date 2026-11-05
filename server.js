@@ -5,8 +5,328 @@ import crypto from 'node:crypto';
 import zlib from 'node:zlib';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
-import { createStore } from './lib/store.js';
-import { createKick, KickError, REDEMPTION_EVENT, ReloginError } from './lib/kick.js';
+
+// ---- Storage ----------------------------------------------------------------
+
+// Each streamer lives in data/users/<kickUserId>.json, their sounds in data/sounds/<kickUserId>/.
+// OBS keys are HMAC(overlaySecret, kickId[:n]), so a deleted and re-created account gets its link back.
+// n (how many times the link was regenerated) is the only thing kept after deletion, in overlay-rotations.json.
+function createStore(dataDir, overlaySecret) {
+  const usersDir = path.join(dataDir, 'users');
+  const soundsDir = path.join(dataDir, 'sounds');
+  fs.mkdirSync(usersDir, { recursive: true });
+  fs.mkdirSync(soundsDir, { recursive: true });
+
+  const rotationsFile = path.join(dataDir, 'overlay-rotations.json');
+  let rotations = {};
+  try {
+    rotations = JSON.parse(fs.readFileSync(rotationsFile, 'utf8'));
+  } catch (e) {
+    if (e.code !== 'ENOENT') console.error(`Could not read ${rotationsFile}: ${e.message}`);
+  }
+
+  const users = new Map();
+  const byOverlayKey = new Map();
+
+  for (const f of fs.readdirSync(usersDir)) {
+    if (!f.endsWith('.json')) continue;
+    try {
+      const u = JSON.parse(fs.readFileSync(path.join(usersDir, f), 'utf8'));
+      users.set(u.id, u);
+      byOverlayKey.set(u.overlayKey, u.id);
+    } catch (e) {
+      console.error(`Could not read user file ${f}: ${e.message}`);
+    }
+  }
+
+  // A request still running when its user is deleted holds the old object; it must not write it back.
+  const isLive = (u) => users.get(u.id) === u;
+
+  function save(u) {
+    if (!isLive(u)) return;
+    const file = path.join(usersDir, `${u.id}.json`);
+    fs.writeFileSync(file + '.tmp', JSON.stringify(u, null, 2));
+    fs.renameSync(file + '.tmp', file);
+  }
+
+  function overlayKeyFor(id) {
+    const n = rotations[id];
+    const msg = n ? `${id}:${n}` : id;
+    return crypto.createHmac('sha256', overlaySecret).update(msg).digest('base64url').slice(0, 24);
+  }
+
+  return {
+    get: (id) => users.get(String(id)),
+    all: () => [...users.values()],
+    getByOverlayKey: (key) => users.get(byOverlayKey.get(key)),
+    count: () => users.size,
+    save,
+
+    upsert(id, fields) {
+      id = String(id);
+      let u = users.get(id);
+      if (!u) {
+        u = { id, overlayKey: overlayKeyFor(id), alerts: [], masterVolume: 1, createdAt: new Date().toISOString() };
+        users.set(id, u);
+        byOverlayKey.set(u.overlayKey, id);
+      }
+      Object.assign(u, fields);
+      save(u);
+      return u;
+    },
+
+    regenerateOverlayKey(u) {
+      byOverlayKey.delete(u.overlayKey);
+      rotations[u.id] = (rotations[u.id] || 0) + 1;
+      fs.writeFileSync(rotationsFile + '.tmp', JSON.stringify(rotations));
+      fs.renameSync(rotationsFile + '.tmp', rotationsFile);
+      u.overlayKey = overlayKeyFor(u.id);
+      byOverlayKey.set(u.overlayKey, u.id);
+      save(u);
+    },
+
+    remove(u) {
+      users.delete(u.id);
+      byOverlayKey.delete(u.overlayKey);
+      fs.rmSync(path.join(usersDir, `${u.id}.json`), { force: true });
+      fs.rmSync(path.join(soundsDir, u.id), { recursive: true, force: true });
+    },
+
+    isLive,
+
+    soundDir(u) {
+      if (!isLive(u)) throw new Error('This account was deleted');
+      const dir = path.join(soundsDir, u.id);
+      fs.mkdirSync(dir, { recursive: true });
+      return dir;
+    },
+  };
+}
+
+// ---- Kick API -----------------------------------------------------------------
+
+const KICK_ID = 'https://id.kick.com';
+const KICK_API = 'https://api.kick.com/public/v1';
+const REDEMPTION_EVENT = 'channel.reward.redemption.updated';
+const SCOPES = 'user:read channel:read channel:rewards:read channel:rewards:write events:subscribe';
+
+class KickError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// The streamer revoked access or the refresh token is gone; they have to log in again.
+class ReloginError extends Error {}
+
+function errorText(text) {
+  try {
+    const j = JSON.parse(text);
+    if (typeof j.data === 'string' && j.data) return j.data;
+    return j.message || j.error_description || j.error || text;
+  } catch {
+    return text;
+  }
+}
+
+function createKick({ clientId, clientSecret, redirectUri, store }) {
+  async function tokenRequest(params) {
+    const res = await fetch(`${KICK_ID}/oauth/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, ...params }),
+    });
+    const text = await res.text();
+    if (!res.ok) throw new KickError(`Kick token error (${res.status}): ${errorText(text)}`, res.status);
+    return JSON.parse(text);
+  }
+
+  function toTokens(t, previousRefresh) {
+    return {
+      access: t.access_token,
+      refresh: t.refresh_token || previousRefresh,
+      expiresAt: Date.now() + (t.expires_in || 3600) * 1000,
+    };
+  }
+
+  const refreshing = new Map(); // never run two refreshes for the same user at once
+
+  async function accessToken(user) {
+    if (!user.tokens) throw new ReloginError('Not connected to Kick');
+    if (Date.now() < user.tokens.expiresAt - 60000) return user.tokens.access;
+    if (!refreshing.has(user.id)) {
+      refreshing.set(
+        user.id,
+        tokenRequest({ grant_type: 'refresh_token', refresh_token: user.tokens.refresh })
+          .then((t) => {
+            user.tokens = toTokens(t, user.tokens.refresh);
+            store.save(user);
+          })
+          .catch((e) => {
+            if (e.status === 400 || e.status === 401) {
+              user.tokens = null;
+              store.save(user);
+              throw new ReloginError('Your Kick connection expired, please log in again');
+            }
+            throw e;
+          })
+          .finally(() => refreshing.delete(user.id))
+      );
+    }
+    await refreshing.get(user.id);
+    return user.tokens.access;
+  }
+
+  // `who` is a user, or { access } right after login when no user record exists yet
+  async function api(who, method, endpoint, body) {
+    const token = who.access || (await accessToken(who));
+    const res = await fetch(`${KICK_API}${endpoint}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const text = await res.text();
+    if (res.status === 401 && !who.access) {
+      who.tokens = null;
+      store.save(who);
+      throw new ReloginError('Your Kick connection is no longer valid, please log in again');
+    }
+    if (!res.ok) throw new KickError(`Kick: ${errorText(text)} (${res.status})`, res.status);
+    return text ? JSON.parse(text) : null;
+  }
+
+  let publicKeyPem = null;
+  let keyFetchedAt = 0;
+  let keyFetch = null;
+  // Anyone can post a bad signature, so refetch at most once a minute and never replace a good key with an empty one.
+  function fetchPublicKey() {
+    if (publicKeyPem && Date.now() - keyFetchedAt < 60000) return Promise.resolve(publicKeyPem);
+    keyFetch ||= (async () => {
+      try {
+        keyFetchedAt = Date.now();
+        const res = await fetch(`${KICK_API}/public-key`, { signal: AbortSignal.timeout(10000) });
+        const json = await res.json();
+        const pem = json?.data?.public_key || json?.public_key;
+        if (!pem) throw new Error('Could not fetch the Kick public key');
+        publicKeyPem = pem;
+        return pem;
+      } finally {
+        keyFetch = null;
+      }
+    })();
+    return keyFetch.catch((e) => {
+      if (publicKeyPem) return publicKeyPem;
+      throw e;
+    });
+  }
+
+  function checkSignature(pem, headers, rawBody) {
+    const signed = `${headers['kick-event-message-id']}.${headers['kick-event-message-timestamp']}.${rawBody}`;
+    return crypto.createVerify('RSA-SHA256').update(signed).verify(pem, String(headers['kick-event-signature']), 'base64');
+  }
+
+  return {
+    authorizeUrl(state, challenge) {
+      const q = new URLSearchParams({
+        response_type: 'code',
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        scope: SCOPES,
+        state,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+      });
+      return `${KICK_ID}/oauth/authorize?${q}`;
+    },
+
+    async exchangeCode(code, verifier) {
+      const t = await tokenRequest({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: redirectUri,
+        code_verifier: verifier,
+      });
+      return toTokens(t);
+    },
+
+    async getMe(tokens) {
+      const me = await api({ access: tokens.access }, 'GET', '/users');
+      const u = me?.data?.[0];
+      if (!u) throw new KickError('Could not load the Kick user');
+      return { id: String(u.user_id), name: u.name, avatar: u.profile_picture || '' };
+    },
+
+    async ensureSubscription(user) {
+      // The app's subscriptions for every streamer share one list; only look at this streamer's.
+      const list = await api(user, 'GET', `/events/subscriptions?broadcaster_user_id=${encodeURIComponent(user.id)}`);
+      const mine = (list?.data || []).filter(
+        (s) =>
+          (s.event || s.name) === REDEMPTION_EVENT &&
+          // An entry without an owner is only ours if it is the one we created earlier, or deleting it could remove another streamer's.
+          (String(s.broadcaster_user_id) === user.id || (s.broadcaster_user_id == null && s.id === user.subscription?.id))
+      );
+      if (mine.length) {
+        user.subscription = { id: mine[0].id, at: user.subscription?.at || new Date().toISOString() };
+      } else {
+        const r = await api(user, 'POST', '/events/subscriptions', {
+          events: [{ name: REDEMPTION_EVENT, version: 1 }],
+          method: 'webhook',
+        });
+        const item = r?.data?.[0];
+        if (item?.error) throw new KickError(`Kick: ${item.error}`);
+        user.subscription = { id: item?.subscription_id, at: new Date().toISOString() };
+      }
+      store.save(user);
+    },
+
+    async unsubscribe(user) {
+      if (!user.subscription?.id) return;
+      try {
+        await api(user, 'DELETE', `/events/subscriptions?id=${encodeURIComponent(user.subscription.id)}`);
+      } catch (e) {
+        if (e.status !== 404) throw e; // already gone
+      }
+    },
+
+    async listRewards(user) {
+      const r = await api(user, 'GET', '/channels/rewards');
+      return r?.data || [];
+    },
+
+    async createReward(user, fields) {
+      const r = await api(user, 'POST', '/channels/rewards', fields);
+      return r?.data;
+    },
+
+    async updateReward(user, id, fields) {
+      const r = await api(user, 'PATCH', `/channels/rewards/${encodeURIComponent(id)}`, fields);
+      return r?.data;
+    },
+
+    async deleteReward(user, id) {
+      try {
+        await api(user, 'DELETE', `/channels/rewards/${encodeURIComponent(id)}`);
+      } catch (e) {
+        if (e.status !== 404) throw e;
+      }
+    },
+
+    async verifyWebhook(headers, rawBody) {
+      if (!headers['kick-event-signature']) return false;
+      const cached = publicKeyPem;
+      if (cached && checkSignature(cached, headers, rawBody)) return true;
+      const fresh = await fetchPublicKey(); // Kick may have rotated its key
+      return fresh !== cached && checkSignature(fresh, headers, rawBody);
+    },
+  };
+}
+
+// ---- Server -------------------------------------------------------------------
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 loadEnvFile(path.join(ROOT, '.env'));
@@ -24,21 +344,141 @@ const PUBLIC_ORIGIN = new URL(PUBLIC_URL).origin;
 const ADMIN_IDS = new Set((process.env.ADMIN_KICK_IDS || '').split(',').map((s) => s.trim()).filter(Boolean));
 const isAdmin = (user) => Boolean(user && ADMIN_IDS.has(String(user.id)));
 
-// The landing page carries absolute URLs (canonical, Open Graph, schema) filled from PUBLIC_URL.
-// It's read once at startup, so restart the server after editing public/index.html.
-const INDEX_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8').replaceAll('%PUBLIC_URL%', PUBLIC_URL);
-const CHANNEL_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'channel.html'), 'utf8');
+// The public sound list page (/c/<name>); channelPage() fills in the %PLACEHOLDERS%.
+const CHANNEL_HTML = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+  (() => {
+    let pref = 'auto';
+    try { pref = localStorage.getItem('theme') || 'auto'; } catch {}
+    const light = pref === 'light' || (pref === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
+    document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  })();
+</script>
+<title>%NAME% sound alerts – Kick channel point sounds | AudioBounty</title>
+<meta name="description" content="Listen to the %COUNT% sounds you can play on %NAME%'s Kick stream with channel points.">
+<link rel="canonical" href="%URL%">
+<meta property="og:type" content="website">
+<meta property="og:title" content="%NAME% sound alerts">
+<meta property="og:description" content="Listen to the sounds you can play on %NAME%'s Kick stream with channel points.">
+<meta property="og:url" content="%URL%">
+<meta property="og:image" content="%AVATAR%">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔊</text></svg>">
+<link rel="stylesheet" href="/style.css">
+<style>
+  main { max-width: 40rem; }
+  .profile { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 3rem 0 1.5rem; }
+  .profile img { width: 5.5rem; height: 5.5rem; border-radius: 50%; object-fit: cover; background: var(--fill); box-shadow: var(--shadow-sm); margin-bottom: 1rem; }
+  .profile h1 { font-size: clamp(1.75rem, 6vw, 2.25rem); letter-spacing: -.03em; font-weight: 750; line-height: 1.1; }
+  .profile p { margin: .5rem 0 0; color: var(--muted); max-width: 26rem; }
+  .profile .btn { margin-top: 1.1rem; border-radius: 99px; }
+  .list { background: var(--surface); box-shadow: var(--shadow-sm); border-radius: var(--radius); overflow: hidden; }
+  .item { display: flex; align-items: center; gap: .85rem; padding: .8rem 1rem; border-top: 1px solid var(--line); }
+  .item:first-child { border-top: 0; }
+  .item .play { flex: none; width: 2.5rem; min-height: 2.5rem; padding: 0; border-radius: 50%; font-size: .9rem; }
+  .item .play.on { background: var(--accent); color: var(--accent-ink); }
+  .item .info { flex: 1; min-width: 0; }
+  .item .title { display: flex; align-items: center; font-weight: 650; letter-spacing: -.01em; overflow-wrap: anywhere; }
+  .item .meta { color: var(--muted); font-size: .8125rem; }
+  .item .cost { flex: none; font-variant-numeric: tabular-nums; font-weight: 650; color: var(--accent-text); background: var(--accent-soft); padding: .2rem .65rem; border-radius: 99px; font-size: .875rem; }
+  .made { display: block; text-align: center; margin-top: 2rem; color: var(--muted); font-size: .8125rem; }
+</style>
+</head>
+<body>
+<main>
+  <div class="top-right">
+    <a class="wordmark" href="/" style="color:inherit;text-decoration:none"><span aria-hidden="true">🔊</span> AudioBounty</a>
+  </div>
+  <div class="profile reveal">
+    <img id="avatar" src="%AVATAR%" alt="" style="--i:0">
+    <h1 id="title" style="--i:1">%NAME%</h1>
+    <p id="lead" style="--i:2">Sounds you can play on stream with channel points.</p>
+    <a class="btn primary" id="watch" style="--i:3" href="https://kick.com/%NAME%" rel="noopener">Watch on Kick</a>
+  </div>
+  <div class="list" id="list"></div>
+  <a class="made" href="/" id="made">Make your own sound list with AudioBounty</a>
+  <nav class="legal-links" style="font-size:.8125rem"><a href="/legal#privacy" id="lPrivacy">Gizlilik</a><a href="/legal#cookies" id="lCookies">Çerezler</a></nav>
+</main>
+<script id="data" type="application/json">%DATA%</script>
+<script>
+  const data = JSON.parse(document.getElementById('data').textContent);
+  const tr = (navigator.language || '').startsWith('tr');
+  const T = (en, trText) => (tr ? trText : en);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  if (tr) {
+    document.documentElement.lang = 'tr';
+    document.getElementById('lead').textContent = 'Kanal puanlarıyla yayında çalabileceğin sesler.';
+    document.getElementById('watch').textContent = "Kick'te izle";
+    document.getElementById('made').textContent = 'AudioBounty ile kendi ses listeni oluştur';
+  }
+  if (!tr) {
+    document.getElementById('lPrivacy').textContent = 'Privacy';
+    document.getElementById('lPrivacy').href = '/legal#privacy-en';
+    document.getElementById('lCookies').textContent = 'Cookies';
+    document.getElementById('lCookies').href = '/legal#cookies-en';
+  }
+  if (!data.avatar) document.getElementById('avatar').hidden = true;
 
-// Terms, privacy notice and cookie policy. The operator's details come from the environment; the version is
-// a hash of the rendered page, so editing it (or the details) asks every streamer to accept it again.
-const LEGAL_HOST = new URL(PUBLIC_URL).host;
-const LEGAL_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'legal.html'), 'utf8').replace(/%(PUBLIC_URL|OPERATOR|EMAIL|ADDRESS)%/g, (_, k) => escHtml({
-  PUBLIC_URL,
-  OPERATOR: process.env.LEGAL_NAME || LEGAL_HOST,
-  EMAIL: process.env.LEGAL_EMAIL || '[LEGAL_EMAIL not set]',
-  ADDRESS: process.env.LEGAL_ADDRESS || '-',
-}[k]));
-const LEGAL_VERSION = crypto.createHash('sha256').update(LEGAL_HTML).digest('hex').slice(0, 12);
+  const list = document.getElementById('list');
+  list.innerHTML = data.rewards.length
+    ? data.rewards.map((r, i) => {
+        const meta = [r.sounds.length > 1 ? T(\`\${r.sounds.length} sounds, one at random\`, \`\${r.sounds.length} ses, rastgele biri\`) : '', r.tts ? T('Reads your message aloud', 'Mesajını sesli okur') : ''].filter(Boolean).join(' · ');
+        return \`<div class="item enter" style="--i:\${Math.min(i, 12)}">
+          <button class="play" type="button" data-i="\${i}" \${r.sounds.length ? '' : 'disabled'} aria-label="\${esc(T('Listen', 'Dinle'))}: \${esc(r.title)}">▶</button>
+          <div class="info"><div class="title"><span class="dot" style="--c:\${esc(r.color || 'var(--muted)')}" aria-hidden="true"></span>\${esc(r.title)}</div>\${meta ? \`<div class="meta">\${esc(meta)}</div>\` : ''}</div>
+          <span class="cost">\${esc(r.cost)} \${esc(T('points', 'puan'))}</span>
+        </div>\`;
+      }).join('')
+    : \`<div class="item"><div class="info meta">\${esc(T('No sounds yet.', 'Henüz ses yok.'))}</div></div>\`;
+
+  // One sound at a time, trimmed like it plays on stream; a pool plays one at random.
+  let audio = null, btn = null, timer = 0;
+  function stop() {
+    clearTimeout(timer);
+    timer = 0;
+    audio?.pause();
+    if (btn) { btn.textContent = '▶'; btn.classList.remove('on'); }
+    audio = btn = null;
+  }
+  list.addEventListener('click', (e) => {
+    const b = e.target.closest('.play');
+    if (!b) return;
+    const same = b === btn;
+    stop();
+    if (same) return;
+    const r = data.rewards[b.dataset.i];
+    const s = r.sounds[Math.floor(Math.random() * r.sounds.length)];
+    audio = new Audio(s.url);
+    if (s.start) audio.currentTime = s.start;
+    btn = b;
+    b.textContent = '■';
+    b.classList.add('on');
+    audio.onended = stop;
+    audio.onerror = stop;
+    audio.onplaying = () => { if (s.end > s.start && !timer) timer = setTimeout(stop, (s.end - s.start) * 1000); };
+    audio.play().catch(stop);
+  });
+</script>
+</body>
+</html>
+`;
+
+// The landing page carries absolute URLs (canonical, Open Graph, schema) filled from PUBLIC_URL, and the
+// terms, privacy notice and cookie policy (shown at /legal) with the operator's details from the environment.
+// It's read once at startup, so restart the server after editing public/index.html.
+const INDEX_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8').replaceAll('%PUBLIC_URL%', PUBLIC_URL)
+  .replace(/%(OPERATOR|EMAIL|ADDRESS)%/g, (_, k) => escHtml({
+    OPERATOR: process.env.LEGAL_NAME || new URL(PUBLIC_URL).host,
+    EMAIL: process.env.LEGAL_EMAIL || '[LEGAL_EMAIL not set]',
+    ADDRESS: process.env.LEGAL_ADDRESS || '-',
+  }[k]));
+// The terms' version is a hash of their text, so editing them (or the details) asks every streamer to accept again.
+const LEGAL_VERSION = crypto.createHash('sha256')
+  .update(INDEX_HTML.slice(INDEX_HTML.indexOf('<div id="legalPage"'), INDEX_HTML.indexOf('<!-- /legalPage -->'))).digest('hex').slice(0, 12);
 if (!process.env.LEGAL_NAME || !process.env.LEGAL_EMAIL) console.warn('LEGAL_NAME and LEGAL_EMAIL are not set; the terms and privacy pages have no contact details (see .env.example)');
 const ROBOTS_TXT = ['User-agent: *', 'Allow: /', ...['/api/', '/auth/', '/overlay/', '/events/', '/media/', '/tts/', '/p/'].map((d) => `Disallow: ${d}`), '', `Sitemap: ${PUBLIC_URL}/sitemap.xml`, ''].join('\n');
 
@@ -61,8 +501,6 @@ const STATIC_TYPES = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.ico': 'image/x-icon',
-  '.avif': 'image/avif',
-  '.jpg': 'image/jpeg',
 };
 
 if (!process.env.KICK_CLIENT_ID || !process.env.KICK_CLIENT_SECRET) {
@@ -451,7 +889,7 @@ function sendFile(res, file, type) {
       'Content-Type': type,
       'Content-Length': st.size,
       'X-Content-Type-Options': 'nosniff',
-      // Wallpapers rarely change, so browsers keep them for a week instead of asking again on every visit.
+      // Images rarely change, so browsers keep them for a week instead of asking again on every visit.
       'Cache-Control': type.startsWith('audio/') ? 'private, max-age=31536000, immutable' : type.startsWith('image/') ? 'public, max-age=604800' : 'no-cache',
     });
     fs.createReadStream(file).pipe(res);
@@ -1264,14 +1702,10 @@ const server = http.createServer(async (req, res) => {
       return sendFile(res, path.join(PUBLIC_DIR, 'admin.html'), STATIC_TYPES['.html']);
     }
 
-    if (p === '/legal') {
-      res.writeHead(200, { 'Content-Type': STATIC_TYPES['.html'], 'Cache-Control': 'no-cache' });
-      return res.end(LEGAL_HTML);
-    }
 
     if (p === '/healthz') return sendJson(res, 200, { ok: true, users: store.count() });
 
-    if (p === '/' || p === '/index.html') {
+    if (p === '/' || p === '/index.html' || p === '/legal') {
       res.writeHead(200, { 'Content-Type': STATIC_TYPES['.html'], 'Cache-Control': 'no-cache' });
       return res.end(INDEX_HTML);
     }
@@ -1282,13 +1716,13 @@ const server = http.createServer(async (req, res) => {
     if (p === '/sitemap.xml') {
       res.writeHead(200, { 'Content-Type': 'application/xml; charset=utf-8' });
       const pages = store.all().filter((u) => u.publicPage && !u.banned && u.name).map((u) => `<url><loc>${escHtml(`${PUBLIC_URL}/c/${encodeURIComponent(u.name)}`)}</loc></url>`);
-      return res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${PUBLIC_URL}/</loc></url><url><loc>${PUBLIC_URL}/legal</loc></url>${pages.join('')}</urlset>\n`);
+      return res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${PUBLIC_URL}/</loc></url>${pages.join('')}</urlset>\n`);
     }
 
     if (req.method === 'GET') {
       const file = p === '/' ? 'index.html' : path.basename(p);
       const type = STATIC_TYPES[path.extname(file)];
-      if (type && !['overlay.html', 'admin.html', 'channel.html', 'legal.html'].includes(file)) return sendFile(res, path.join(PUBLIC_DIR, file), type);
+      if (type && !['overlay.html', 'admin.html'].includes(file)) return sendFile(res, path.join(PUBLIC_DIR, file), type);
     }
 
     res.writeHead(404);

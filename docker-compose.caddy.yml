@@ -1,5 +1,5 @@
 # Alternative setup with Caddy instead of a tunnel (ports 80 and 443 must be free).
-# Point a DNS A record at the server, put your domain in Caddyfile, then run:
+# Point a DNS A record at the server, set DOMAIN in .env (e.g. DOMAIN=alerts.example.com), then run:
 #   docker compose -f docker-compose.caddy.yml up -d --build
 services:
   app:
@@ -18,11 +18,24 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddydata:/data
     depends_on:
       - app
+
+# The Caddy config lives here instead of a separate Caddyfile (needs Docker Compose 2.23 or newer).
+# flush_interval -1 passes the OBS event stream through without buffering.
+configs:
+  caddyfile:
+    content: |
+      ${DOMAIN:?Set DOMAIN in .env} {
+      	reverse_proxy app:3000 {
+      		flush_interval -1
+      	}
+      }
 
 volumes:
   appdata:

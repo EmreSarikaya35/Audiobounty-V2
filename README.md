@@ -13,7 +13,7 @@ Viewers redeem [Kick](https://kick.com) channel point rewards and a sound plays 
 
 [**Live site**](https://audio.mrkaffin.com/) · [Self-host it](#self-hosting) · [Türkçe](#türkçe)
 
-<img src="docs/screenshots/dashboard-dark.jpg" alt="AudioBounty dashboard: OBS status, sound reward cards and statistics" width="820">
+<img src="docs/dashboard.jpg" alt="AudioBounty dashboard: OBS status, sound reward cards and statistics" width="820">
 
 </div>
 
@@ -33,14 +33,9 @@ You host it once. Streamers log in with Kick, add their sounds and paste one lin
 
 ### Screenshots
 
-| | |
-|---|---|
-| <img src="docs/screenshots/overlay-card.jpg" alt="The on-stream card in OBS with the viewer's name, the reward and their message"> | <img src="docs/screenshots/settings-dark.jpg" alt="Settings: card position, style, size and colour, and the public sound list"> |
-| The card viewers see on stream | Card style, public sound list and more |
-| <img src="docs/screenshots/stats-dark.jpg" alt="Statistics: redemptions, points, a 30-day chart and top rewards"> | <img src="docs/screenshots/public-dark.jpg" alt="Public sound list page where viewers can listen to every reward"> |
-| Statistics | Public sound list for your viewers |
-| <img src="docs/screenshots/dashboard-light.jpg" alt="Dashboard in light mode"> | <img src="docs/screenshots/landing-light.jpg" alt="Landing page with Log in with Kick"> |
-| Light mode | Log in with Kick |
+<img src="docs/gallery.jpg" alt="Screenshots: the on-stream card in OBS, card settings, statistics, the public sound list, the dashboard in light mode and the login page" width="820">
+
+From the top left: the card viewers see on stream, card style and public sound list settings, statistics, the public sound list for viewers, light mode, and the login page.
 
 ## How it works
 
@@ -124,12 +119,12 @@ Off by default. When turned on in Settings, `/c/<kick name>` lists the streamer'
 - Turkish and English, from the button in the header (defaults to the browser's language).
 - Automatic, light or dark theme from the theme button in the header, also available before logging in.
 - Long reward lists show the first 6 with **Show all**.
-- Liquid Glass look after [Glisse](https://glisse.kelvinzhang.ca/): a soft coloured backdrop under translucent glass cards, rows, banners and sheets with a specular rim, glass capsule controls that swell, glow and stretch towards the pointer while held, switches you can drag by hand, a floating glass header, menus that grow out of their button, slider and switch thumbs that turn into magnifying lenses while held, and segmented controls whose selection lifts into a lens you can drag to another option. `public/glass.js` draws a displacement map for each glass element and uses it in an SVG filter, so content behind the glass bends at its rim; this needs Chromium, other browsers get frosted glass. To stay light on the GPU, nothing animates in the background, only a few small panes refract, and lenses are only computed while held. Streamers can turn Liquid Glass off in **Settings → Appearance**, which removes every glass filter.
+- Liquid Glass look after [Glisse](https://glisse.kelvinzhang.ca/): a soft coloured backdrop under translucent glass cards, rows, banners and sheets with a specular rim, glass capsule controls that swell, glow and stretch towards the pointer while held, switches you can drag by hand, a floating glass header, menus that grow out of their button, slider and switch thumbs that turn into magnifying lenses while held, and segmented controls whose selection lifts into a lens you can drag to another option. A small script in `public/index.html` draws a displacement map for each glass element and uses it in an SVG filter, so content behind the glass bends at its rim; this needs Chromium, other browsers get frosted glass. To stay light on the GPU, nothing animates in the background, only a few small panes refract, and lenses are only computed while held. Streamers can turn Liquid Glass off in **Settings → Appearance**, which removes every glass filter.
 - Respects the system's reduced motion, reduced transparency and increased contrast settings.
 
 ### Terms, privacy and cookies
 
-- `/legal` has the Terms of Service, the Privacy Policy (also the KVKK disclosure notice) and the Cookie Policy, in Turkish and English. Your name, email and address come from `LEGAL_NAME`, `LEGAL_EMAIL` and `LEGAL_ADDRESS`. Edit `public/legal.html` to fit your setup and have a lawyer review it; it is a template, not legal advice.
+- `/legal` has the Terms of Service, the Privacy Policy (also the KVKK disclosure notice) and the Cookie Policy, in Turkish and English. Your name, email and address come from `LEGAL_NAME`, `LEGAL_EMAIL` and `LEGAL_ADDRESS`. The texts live in `public/index.html` (the `legalPage` block); edit them to fit your setup and have a lawyer review it; it is a template, not legal advice.
 - The login button says that logging in with Kick accepts the terms. The server records the version and time of acceptance per streamer. The version is a hash of the rendered page, so after you edit the page (or the contact details) every streamer sees a banner asking them to accept the new version.
 - Access logs (Turkish Law No. 5651): page loads, logins and logouts, and dashboard changes are written to `DATA_DIR/access-logs/<YYYY-MM>.log` with time, IP (from `CF-Connecting-IP` or `X-Forwarded-For` behind a proxy), port, method, path without the query, status and Kick user id. Files older than 12 months are deleted automatically. Polling, OBS, sound and static requests are not logged.
 - A cookie banner offers **Reject**, **Only necessary** and **Accept all** with equal weight. There are no analytics or advertising cookies; "Accept all" only adds remembering language and theme in the browser. Logging in needs at least "Only necessary", and the server enforces it.
@@ -322,7 +317,7 @@ Everything a streamer sets in the dashboard (rewards, volumes, text-to-speech, b
 
 ### Caddy instead of a tunnel
 
-If ports 80 and 443 are free on your server, Caddy can serve the site and obtain the certificate itself. Point a DNS A record at your server (with Cloudflare's proxy **off**), put your domain in `Caddyfile`, and run:
+If ports 80 and 443 are free on your server, Caddy can serve the site and obtain the certificate itself. Point a DNS A record at your server (with Cloudflare's proxy **off**), set `DOMAIN=alerts.example.com` in `.env`, and run (needs Docker Compose 2.23 or newer):
 
 ```bash
 docker compose -f docker-compose.caddy.yml up -d --build
@@ -387,24 +382,19 @@ Set the `https://….trycloudflare.com` address as `PUBLIC_URL`, update the Redi
 ## Project structure
 
 ```
-server.js                 HTTP server: sessions, webhook, dashboard API, overlay stream,
-                          myinstants search and text-to-speech proxy
-lib/kick.js               Kick OAuth, API client and webhook signature verification
-lib/store.js              JSON file storage (data/users/*.json, data/sounds/<id>/)
-public/index.html         Landing page and streamer dashboard
+server.js                 Everything on the server: HTTP routes, sessions, the Kick API client and webhook
+                          checks, JSON storage, the overlay stream, myinstants and text-to-speech proxies,
+                          and the public sound list page (/c/<name>)
+public/index.html         Landing page, streamer dashboard, terms/privacy/cookie texts (/legal)
+                          and the Liquid Glass script
 public/admin.html         Admin panel (/admin)
-public/style.css          Shared styles for every page
-public/glass.js           Liquid Glass refraction, lenses and press effects
 public/overlay.html       OBS browser source: queue, on-stream card, text-to-speech
-public/channel.html       Public sound list (/c/<name>)
-public/legal.html         Terms, privacy notice and cookie policy (/legal)
-public/bg-*.avif|jpg      Background images for the dark and light themes
-docs/                     README screenshots and the GitHub social preview image
+public/style.css          Shared styles for every page, background images included
+docs/                     README screenshots
 .env.example              Settings template
 Dockerfile                App image
 docker-compose.yml        App + Cloudflare Tunnel
-docker-compose.caddy.yml  App + Caddy (alternative)
-Caddyfile                 Caddy config for the alternative setup
+docker-compose.caddy.yml  App + Caddy (alternative), Caddy config included
 deploy.sh                 Upload and rebuild from your machine
 ```
 
