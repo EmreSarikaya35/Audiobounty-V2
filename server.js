@@ -571,6 +571,27 @@ function validImage(v) {
   return u.href;
 }
 
+// Tenor and Giphy share links open the GIF's web page, which OBS can't show as an image; turn them into the GIF itself.
+// Only these two sites are fetched, so a link can't make the server request other addresses.
+async function resolveImage(v) {
+  const href = validImage(v);
+  if (!href) return href;
+  const u = new URL(href);
+  const host = u.hostname.replace(/^www\./, '');
+  if (host === 'giphy.com') {
+    const id = u.pathname.match(/^\/(?:gifs|stickers|embed)\/(?:[\w-]*-)?([A-Za-z0-9]+)\/?$/)?.[1];
+    if (!id) throw new HttpError(400, 'Could not find the GIF on this page. Right-click the GIF and copy the image address instead.');
+    return `https://media.giphy.com/media/${id}/giphy.gif`;
+  }
+  if (host !== 'tenor.com') return href;
+  const res = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'manual', signal: AbortSignal.timeout(8000) }).catch(() => null);
+  const moved = res?.headers.get('location');
+  if (moved && /^https:\/\/media\d*\.tenor\.com\//.test(moved)) return validImage(moved);
+  const gif = res?.ok && (await res.text()).match(/<meta[^>]+property="og:image"[^>]+content="(https:\/\/media\d*\.tenor\.com\/[^"]+)"/)?.[1];
+  if (!gif) throw new HttpError(400, 'Could not find the GIF on this page. Right-click the GIF and copy the image address instead.');
+  return validImage(gif.replace(/&amp;/g, '&'));
+}
+
 // Trim points in seconds; end 0 means "to the end of the sound".
 function validTrim(start, end) {
   const a = Math.max(0, Math.min(600, Math.round(Number(start) * 100) / 100 || 0));
@@ -652,7 +673,7 @@ async function handleApi(req, res, user, p, admin) {
     const id = crypto.randomBytes(6).toString('hex');
     const tts = Boolean(b.tts);
     if (!b.sound && !tts) throw new HttpError(400, 'Choose a sound file');
-    validImage(b.image); // fail before a Kick reward is created
+    const image = await resolveImage(b.image); // fail before a Kick reward is created
     let alert;
     if (b.rewardId) {
       // Attach a sound to a reward that already exists on Kick
@@ -678,7 +699,7 @@ async function handleApi(req, res, user, p, admin) {
       alert = { id, rewardId: reward?.id, title, cost, managed: true, tts, color: validColor(reward?.background_color) || color };
     }
     try {
-      alert.image = validImage(b.image);
+      alert.image = image;
       alert.sounds = b.sound ? [{ ...(await newSound(user, id, b.sound)), ...validTrim(b.sound.start, b.sound.end) }] : [];
       if (user.alerts.length >= MAX_ALERTS) throw new HttpError(400, `You can add at most ${MAX_ALERTS} sound rewards`);
     } catch (e) {
@@ -756,7 +777,11 @@ async function handleApi(req, res, user, p, admin) {
         if (kickFields.background_color) alert.color = kickFields.background_color;
       }
       if (b.volume !== undefined) alert.volume = validVolume(b.volume);
-      if (b.image !== undefined) alert.image = validImage(b.image);
+      if (b.image !== undefined) {
+        const image = await resolveImage(b.image);
+        if (!user.alerts.includes(alert)) throw new HttpError(404, 'Reward not found');
+        alert.image = image;
+      }
       store.save(user);
       return sendJson(res, 200, meState(user));
     }
