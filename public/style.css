@@ -50,7 +50,6 @@ main { max-width: 48rem; margin: 0 auto; padding: 0 1rem 4rem; }
 a { color: var(--accent-text); }
 h1, h2, h3 { margin: 0; }
 
-/* Controls: feedback lives on the press and is instant */
 /* Controls: Liquid Glass capsules. Feedback lives on the press and is instant */
 button, .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: .5rem; min-height: 2.5rem;
@@ -64,7 +63,7 @@ button, .btn {
 button, .btn { transition: transform 420ms cubic-bezier(.3,1.5,.5,1), background-color 200ms; }
 button:active, .btn:active {
   transform: var(--press); background-color: var(--glass-active); transition-duration: 220ms, 0s;
-  /* a soft light where the finger is (the glass script sets --gx/--gy) */
+  /* A soft light where the finger is (the glass script sets --gx/--gy) */
   background-image: radial-gradient(circle 7rem at var(--gx, 50%) var(--gy, 50%), rgba(255,255,255,.16), rgba(255,255,255,.05) 50%, transparent);
 }
 .wide-btn:active, .activity:active, .now-playing:active { transform: scale(1.015); }
@@ -90,7 +89,7 @@ textarea { border-radius: 16px; resize: vertical; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-text); background: var(--surface); }
 input::placeholder, textarea::placeholder { color: var(--muted); }
 
-/* Slider: a thin rail filled up to the thumb (--p, kept in sync by the page), and a white glass capsule thumb */
+/* Slider: a thin rail filled up to the thumb (--pp, kept in sync by the page), and a white glass capsule thumb */
 input[type=range] { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 1.75rem; margin: 0; background: transparent; cursor: pointer; }
 input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(var(--accent) 0 0) 0 / calc((100% - 2.25rem) * var(--pp, .5) + 1.125rem) 100% no-repeat, var(--rail); }
 input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--rail); }
@@ -133,7 +132,7 @@ input.switch:checked:active::after { transform: translateX(.875rem); }
   box-shadow: 0 6px 20px rgba(0,0,0,.2), inset 0 0 0 1.5px rgba(255,255,255,.5), inset 0 2px 1px rgba(255,255,255,.45), inset 2px 6px 18px rgba(0,0,0,.09), inset -2px -6px 18px rgba(255,255,255,.16);
   transition: transform 420ms cubic-bezier(.3,1.35,.5,1);
 }
-/* the lens filter (the glass script puts it in --lens) only runs while the thumb is held */
+/* The lens filter (the glass script puts it in --lens) only runs while the thumb is held */
 .lifted .switch-thumb, .lifted .range-thumb { -webkit-backdrop-filter: var(--lens, blur(.5px) saturate(1.5)); backdrop-filter: var(--lens, blur(.5px) saturate(1.5)); }
 .switch-thumb i, .range-thumb i { position: absolute; inset: 0; border-radius: inherit; background: #fff; transition: opacity 220ms; }
 .lifted .switch-thumb i, .lifted .range-thumb i { opacity: .12; transition-duration: 120ms; }
@@ -509,15 +508,12 @@ dialog.sheet .seg { margin-top: .75rem; }
 dialog.sheet .inline-field .seg { flex: none; margin-top: 0; }
 .inline-field > .field-label { margin: 0; color: var(--text); font-size: .9375rem; letter-spacing: 0; }
 
-/* ---- Liquid Glass surfaces ----
-   The wallpaper is soft green ambient light (a heavily blurred photo, ~600 bytes), so the glass has something to
-   tint without competing with the content; cards, rows, banners and sheets are translucent panes with a rim. */
+/* Liquid Glass surfaces: translucent panes with a rim over a soft green wallpaper (a blurred photo, ~600 bytes) */
 body::before {
   content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background: var(--wall) center / cover no-repeat, var(--bg);
 }
-/* No backdrop-filter on these: the wallpaper is only soft light, so a translucent tint looks the same as a blur
-   and costs nothing while scrolling */
+/* No backdrop-filter here: over a soft wallpaper a tint looks the same as a blur and costs nothing on scroll */
 section.card, .reward, .activity, .empty-state, .banner, .how div {
   position: relative; background-color: var(--card);
   box-shadow: inset 0 0 0 .5px var(--edge), inset 0 1px 0 var(--rim), 0 10px 30px rgba(0,0,0,.14);
@@ -530,7 +526,7 @@ section.card, .reward, .activity, .empty-state, .banner, .how div {
 :root[data-theme="light"] .banner.info { --card: color-mix(in srgb, var(--accent) 16%, rgba(255,255,255,.7)); }
 @media (hover: hover) and (pointer: fine) { .activity:hover { background-color: var(--card-hover); } }
 .activity:active { background-color: var(--card-hover); }
-/* the same light ring as the header, on every pane */
+/* The same light ring as the header, on every pane */
 section.card::before, .reward::before, .activity::before, .empty-state::before, .banner::before, .how div::before, dialog.sheet .panel::before {
   content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 1;
   background: linear-gradient(135deg, var(--rim-light), transparent 32%, transparent 68%, color-mix(in srgb, var(--rim-light) 55%, transparent));

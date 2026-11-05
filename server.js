@@ -6,11 +6,11 @@ import zlib from 'node:zlib';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 
-// ---- Storage ----------------------------------------------------------------
+// Storage
 
 // Each streamer lives in data/users/<kickUserId>.json, their sounds in data/sounds/<kickUserId>/.
-// OBS keys are HMAC(overlaySecret, kickId[:n]), so a deleted and re-created account gets its link back.
-// n (how many times the link was regenerated) is the only thing kept after deletion, in overlay-rotations.json.
+// OBS keys are HMAC(overlaySecret, kickId[:n]): a re-created account gets its link back, and only n (the
+// regeneration count, in overlay-rotations.json) outlives a deleted account.
 function createStore(dataDir, overlaySecret) {
   const usersDir = path.join(dataDir, 'users');
   const soundsDir = path.join(dataDir, 'sounds');
@@ -103,7 +103,7 @@ function createStore(dataDir, overlaySecret) {
   };
 }
 
-// ---- Kick API -----------------------------------------------------------------
+// Kick API client
 
 const KICK_ID = 'https://id.kick.com';
 const KICK_API = 'https://api.kick.com/public/v1';
@@ -326,7 +326,7 @@ function createKick({ clientId, clientSecret, redirectUri, store }) {
   };
 }
 
-// ---- Server -------------------------------------------------------------------
+// Server
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 loadEnvFile(path.join(ROOT, '.env'));
@@ -467,9 +467,8 @@ const CHANNEL_HTML = `<!doctype html>
 </html>
 `;
 
-// The landing page carries absolute URLs (canonical, Open Graph, schema) filled from PUBLIC_URL, and the
-// terms, privacy notice and cookie policy (shown at /legal) with the operator's details from the environment.
-// It's read once at startup, so restart the server after editing public/index.html.
+// Read once at startup, so restart after editing index.html. Fills in PUBLIC_URL and the operator's details
+// for the terms, privacy notice and cookie policy shown at /legal.
 const INDEX_HTML = fs.readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8').replaceAll('%PUBLIC_URL%', PUBLIC_URL)
   .replace(/%(OPERATOR|EMAIL|ADDRESS)%/g, (_, k) => escHtml({
     OPERATOR: process.env.LEGAL_NAME || new URL(PUBLIC_URL).host,

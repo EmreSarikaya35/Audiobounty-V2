@@ -188,7 +188,7 @@
       </div>
     </nav>
 
-    <!-- ================= TÜRKÇE ================= -->
+    <!-- Türkçe -->
     <div data-lang="tr">
     <article id="terms">
       <h1>Kullanım Koşulları</h1>
@@ -333,7 +333,7 @@
     </article>
     </div>
 
-    <!-- ================= ENGLISH ================= -->
+    <!-- English -->
     <div data-lang="en">
     <article id="terms-en">
       <h1>Terms of Service</h1>
@@ -2303,13 +2303,8 @@
   }
 </script>
 <script>
-// Liquid Glass, after Glisse (glisse.kelvinzhang.ca).
-// - Refraction: for each glass element a displacement map is drawn for its exact size and used in an SVG filter
-//   inside backdrop-filter. It bends what is behind the glass near the rim, magnifies it for lenses and splits the
-//   colours a little. Only Chromium supports SVG filters in backdrop-filter; elsewhere the frosted glass stays.
-// - Press: buttons grow and glow where they are pressed. Slider and switch thumbs lift into clear lenses, and the
-//   selection of a segmented control lifts into a lens that can be dragged to another option.
-// The native controls stay where they are, so keyboard, forms and screen readers work as before.
+// Liquid Glass after Glisse: per-element displacement maps in an SVG backdrop filter (Chromium only) plus press,
+// lens and drag effects. The native controls stay underneath, so keyboard and screen readers work as before.
 (() => {
   const NS = 'http://www.w3.org/2000/svg';
   const refracts = CSS.supports('backdrop-filter', 'url(#x)') && !/Version\/[\d.]+.*Safari/.test(navigator.userAgent)
