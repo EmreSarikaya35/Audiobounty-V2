@@ -197,7 +197,7 @@ docker --version && docker compose version
 ### Step 3: Get the code onto the server
 
 ```bash
-git clone https://github.com/EmreSarikaya35/Audiobounty-V2.git /opt/kick-sound-alerts
+git clone https://github.com/EmreSarikaya35/Audiobounty.git /opt/kick-sound-alerts
 cd /opt/kick-sound-alerts
 ```
 

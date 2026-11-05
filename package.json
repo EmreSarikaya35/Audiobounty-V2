@@ -21,13 +21,13 @@
     "self-hosted",
     "myinstants"
   ],
-  "homepage": "https://github.com/EmreSarikaya35/Audiobounty-V2#readme",
+  "homepage": "https://github.com/EmreSarikaya35/Audiobounty#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/EmreSarikaya35/Audiobounty-V2.git"
+    "url": "git+https://github.com/EmreSarikaya35/Audiobounty.git"
   },
   "bugs": {
-    "url": "https://github.com/EmreSarikaya35/Audiobounty-V2/issues"
+    "url": "https://github.com/EmreSarikaya35/Audiobounty/issues"
   },
   "author": "Emre Sarıkaya",
   "license": "MIT",
