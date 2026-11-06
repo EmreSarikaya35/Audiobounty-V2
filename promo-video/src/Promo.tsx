@@ -1,5 +1,6 @@
 import { linearTiming, TransitionSeries } from "@remotion/transitions";
-import { AbsoluteFill, useCurrentFrame } from "remotion";
+import { Audio } from "@remotion/media";
+import { AbsoluteFill, staticFile, useCurrentFrame } from "remotion";
 import { cine } from "./lib/transitions";
 import { EASE_IN_OUT, tw } from "./lib/motion";
 import { Vignette } from "./lib/theme";
@@ -43,6 +44,8 @@ export const Promo: React.FC = () => {
           <Finale />
         </TransitionSeries.Sequence>
       </TransitionSeries>
+      {/* soundtrack from scripts/music.mjs, laid out on this timeline at 106 BPM */}
+      <Audio src={staticFile("music.m4a")} volume={0.7} />
       <Vignette />
       {/* fade up from black and back down at the very end */}
       <AbsoluteFill style={{ backgroundColor: "#000", opacity: Math.max(tw(f, 0, 20, 1, 0), tw(f, PROMO_FRAMES - 30, PROMO_FRAMES - 1, 0, 1)) }} />

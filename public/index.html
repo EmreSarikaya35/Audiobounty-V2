@@ -98,6 +98,7 @@
       </div>
       <figure class="stage">
         <video id="promo" src="/promo.mp4" poster="/promo.jpg" width="1280" height="720" autoplay muted loop playsinline preload="metadata" aria-label="AudioBounty promo video: a redemption plays a sound on stream"></video>
+        <button class="stage-sound" type="button" id="promoSound" data-i18n-label="Turn sound on"><svg class="i" aria-hidden="true"><use href="#i-muted"/></svg></button>
       </figure>
     </div>
   </div>
@@ -1022,6 +1023,8 @@
     'Recent activity': 'Son etkinlik',
     'Redemptions show up here': 'Kullanımlar burada görünür',
     'Settings': 'Ayarlar',
+    'Turn sound on': 'Sesi aç',
+    'Turn sound off': 'Sesi kapat',
     'Master volume': 'Ana ses',
     'Max sound length (seconds, 0 = no limit)': 'En uzun ses süresi (saniye, 0 = sınırsız)',
     'Even out loudness (turns down sounds that are much louder than the rest)': 'Ses seviyesini eşitle (diğerlerinden çok yüksek sesleri kısar)',
@@ -1151,6 +1154,16 @@
   }
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   if (reduceMotion.matches) document.getElementById('promo').pause(); // the poster stays
+  // Browsers only autoplay muted video; the button turns the soundtrack on from the start
+  const promo = document.getElementById('promo');
+  const promoSound = document.getElementById('promoSound');
+  promoSound.addEventListener('click', () => {
+    promo.muted = !promo.muted;
+    if (!promo.muted) { promo.currentTime = 0; promo.play(); }
+    promoSound.dataset.i18nLabel = promo.muted ? 'Turn sound on' : 'Turn sound off';
+    promoSound.setAttribute('aria-label', t(promoSound.dataset.i18nLabel));
+    promoSound.querySelector('use').setAttribute('href', promo.muted ? '#i-muted' : '#i-sound');
+  });
   // Sliders paint their filled part and place the glass thumb (the glass script below) from --pp, 0 to 1.
   const syncRange = (el) => (el.closest('.range-wrap') || el).style.setProperty('--pp', (el.value - el.min) / (el.max - el.min || 1));
   document.addEventListener('input', (e) => { if (e.target.type === 'range') syncRange(e.target); });
