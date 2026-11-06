@@ -96,16 +96,8 @@
           <div><b><i>3</i><span data-i18n>Add to OBS</span></b><span data-i18n>Add your personal link to OBS as a browser source. Done.</span></div>
         </div>
       </div>
-      <figure class="stage" aria-hidden="true">
-        <div class="stage-frame">
-          <span class="stage-live">LIVE</span>
-          <div class="cp-card"><b>mert_42</b> <svg class="i" aria-hidden="true"><use href="#i-sound"/></svg> <span data-i18n>Air horn</span><p data-i18n>Hello stream</p></div>
-        </div>
-        <figcaption class="stage-bar">
-          <span class="eq"><i></i><i></i><i></i></span>
-          <span class="stage-src">AudioBounty</span>
-          <span class="stage-meta">mert_42 · 500</span>
-        </figcaption>
+      <figure class="stage">
+        <video id="promo" src="/promo.mp4" poster="/promo.jpg" width="1280" height="720" autoplay muted loop playsinline preload="metadata" aria-label="AudioBounty promo video: a redemption plays a sound on stream"></video>
       </figure>
     </div>
   </div>
@@ -1158,6 +1150,7 @@
     if (consentValue() === 'all') try { localStorage.setItem(key, value); } catch {}
   }
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  if (reduceMotion.matches) document.getElementById('promo').pause(); // the poster stays
   // Sliders paint their filled part and place the glass thumb (the glass script below) from --pp, 0 to 1.
   const syncRange = (el) => (el.closest('.range-wrap') || el).style.setProperty('--pp', (el.value - el.min) / (el.max - el.min || 1));
   document.addEventListener('input', (e) => { if (e.target.type === 'range') syncRange(e.target); });

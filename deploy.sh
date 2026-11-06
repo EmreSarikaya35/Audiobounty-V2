@@ -17,7 +17,7 @@ DEPLOY_DIR="${DEPLOY_DIR:-/opt/kick-sound-alerts}"
 echo "→ Uploading files to $DEPLOY_HOST:$DEPLOY_DIR…"
 rsync -av \
   --exclude data --exclude sounds --exclude .env --exclude .deploy.env \
-  --exclude .git --exclude node_modules --exclude .DS_Store \
+  --exclude .git --exclude node_modules --exclude .DS_Store --exclude promo-video \
   ./ "$DEPLOY_HOST:$DEPLOY_DIR/"
 
 echo "→ Rebuilding and restarting…"

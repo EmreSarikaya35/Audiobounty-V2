@@ -171,17 +171,8 @@ main:has(> #landing:not([hidden])) { max-width: 72rem; }
 .how b span { grid-column: 2; }
 .how > div > span { grid-column: 2; color: var(--muted); font-size: .875rem; }
 .how i { font-style: normal; color: var(--muted); font-weight: 500; font-variant-numeric: tabular-nums; }
-.stage { margin: 0; border-radius: 16px; overflow: hidden; background: #0d0f11; box-shadow: var(--shadow-lg); }
-.stage-frame {
-  position: relative; aspect-ratio: 16 / 9; display: flex; justify-content: center; align-items: flex-start; padding: 1.25rem;
-  background: radial-gradient(120% 70% at 75% 110%, #24301f, transparent 60%), linear-gradient(160deg, #2b3440, #151a20 55%, #101311);
-}
-.stage .cp-card { --s: 1.4; --card-accent: #53fc18; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
-.stage-live { position: absolute; left: .75rem; bottom: .75rem; padding: .125rem .5rem; border-radius: 4px; background: rgba(0,0,0,.55); color: #fff; font: 600 .6875rem/1.4 system-ui, sans-serif; letter-spacing: .02em; }
-.stage-bar { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem; color: rgba(235,235,245,.6); font-size: .8125rem; background: #16181b; }
-.stage-bar .eq i { background: #53fc18; }
-.stage-src { color: #fff; font-weight: 500; }
-.stage-meta { margin-left: auto; font-variant-numeric: tabular-nums; }
+.stage { margin: 0; border-radius: 16px; overflow: hidden; background: #070708; box-shadow: var(--shadow-lg); aspect-ratio: 16 / 9; }
+.stage video { display: block; width: 100%; height: 100%; object-fit: cover; }
 .status .eq { height: 10px; } .status .eq i { width: 2px; background: currentColor; }
 .status:has(.eq)::before { display: none; }
 
@@ -606,7 +597,6 @@ html[lang="tr"] .legal [data-lang="tr"], html[lang="en"] .legal [data-lang="en"]
 @media (max-width: 640px) {
   .tiles b { font-size: 1.2rem; }
   .hero { grid-template-columns: 1fr; gap: 2rem; min-height: 0; padding-top: 2rem; }
-  .stage .cp-card { --s: 1; }
   .settings { grid-template-columns: 1fr; }
   .status-actions { width: 100%; gap: .5rem; }
   .status-actions > button { padding-inline: .75rem; }

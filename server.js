@@ -502,6 +502,8 @@ const STATIC_TYPES = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.ico': 'image/x-icon',
+  '.jpg': 'image/jpeg',
+  '.mp4': 'video/mp4',
 };
 
 if (!process.env.KICK_CLIENT_ID || !process.env.KICK_CLIENT_SECRET) {
@@ -886,13 +888,26 @@ function sendFile(res, file, type) {
       res.writeHead(404);
       return res.end('Not found');
     }
-    res.writeHead(200, {
+    const headers = {
       'Content-Type': type,
-      'Content-Length': st.size,
+      'Accept-Ranges': 'bytes',
       'X-Content-Type-Options': 'nosniff',
-      // Images rarely change, so browsers keep them for a week instead of asking again on every visit.
-      'Cache-Control': type.startsWith('audio/') ? 'private, max-age=31536000, immutable' : type.startsWith('image/') ? 'public, max-age=604800' : 'no-cache',
-    });
+      // Images and video rarely change, so browsers keep them for a week instead of asking again on every visit.
+      'Cache-Control': type.startsWith('audio/') ? 'private, max-age=31536000, immutable' : /^(image|video)\//.test(type) ? 'public, max-age=604800' : 'no-cache',
+    };
+    // Safari only plays video when it can ask for byte ranges
+    const m = /^bytes=(\d*)-(\d*)$/.exec(res.req?.headers.range || '');
+    if (m && (m[1] || m[2])) {
+      const start = m[1] ? Number(m[1]) : Math.max(0, st.size - Number(m[2]));
+      const end = m[1] && m[2] ? Math.min(Number(m[2]), st.size - 1) : st.size - 1;
+      if (start > end || start >= st.size) {
+        res.writeHead(416, { 'Content-Range': `bytes */${st.size}` });
+        return res.end();
+      }
+      res.writeHead(206, { ...headers, 'Content-Range': `bytes ${start}-${end}/${st.size}`, 'Content-Length': end - start + 1 });
+      return fs.createReadStream(file, { start, end }).pipe(res);
+    }
+    res.writeHead(200, { ...headers, 'Content-Length': st.size });
     fs.createReadStream(file).pipe(res);
   });
 }

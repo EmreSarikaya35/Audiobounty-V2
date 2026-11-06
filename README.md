@@ -13,7 +13,9 @@ Viewers redeem [Kick](https://kick.com) channel point rewards and a sound plays 
 
 [**Live site**](https://audio.mrkaffin.com/) · [Self-host it](#self-hosting) · [Türkçe](#türkçe)
 
-<img src="docs/dashboard.jpg" alt="AudioBounty dashboard: OBS status, sound reward cards and statistics" width="820">
+<a href="public/promo.mp4"><img src="docs/promo.gif" alt="AudioBounty promo: a viewer redeems a reward and the sound card appears on stream" width="820"></a>
+
+<sub>A clip from the promo video. <a href="public/promo.mp4">Watch the whole video</a> (33 seconds).</sub>
 
 </div>
 
@@ -32,6 +34,8 @@ You host it once. Streamers log in with Kick, add their sounds and paste one lin
 - **No dependencies.** Plain Node.js, no `npm install`.
 
 ### Screenshots
+
+<img src="docs/dashboard.jpg" alt="AudioBounty dashboard: OBS status, sound reward cards and statistics" width="820">
 
 <img src="docs/gallery.jpg" alt="Screenshots: the on-stream card in OBS, card settings, statistics, the public sound list, the dashboard in light mode and the login page" width="820">
 
@@ -390,7 +394,10 @@ public/index.html         Landing page, streamer dashboard, terms/privacy/cookie
 public/admin.html         Admin panel (/admin)
 public/overlay.html       OBS browser source: queue, on-stream card, text-to-speech
 public/style.css          Shared styles for every page, background images included
-docs/                     README screenshots
+public/promo.mp4, .jpg    The promo video on the landing page and its poster
+docs/                     README screenshots and the promo clip
+promo-video/              Source of the promo video (Remotion): npm install, then npm run dev or
+                          npx remotion render Promo
 .env.example              Settings template
 Dockerfile                App image
 docker-compose.yml        App + Cloudflare Tunnel
