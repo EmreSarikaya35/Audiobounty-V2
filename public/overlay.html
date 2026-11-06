@@ -30,6 +30,7 @@
   #card.light { background: rgba(255,255,255,.94); color: #111; text-shadow: none; }
   #card.s { --s: .8; } #card.l { --s: 1.3; }
   #card b { color: var(--accent); }
+  #card .ic { width: .85em; height: .85em; vertical-align: -.08em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .75; }
   #card.light b { filter: brightness(.75); }
   #card p { margin: 6px 0 0; font-weight: 500; font-size: calc(20px * var(--s)); overflow-wrap: anywhere; }
   #cardImg { display: block; max-width: 100%; max-height: calc(220px * var(--s)); margin: 0 auto calc(8px * var(--s)); border-radius: calc(10px * var(--s)); }
@@ -66,7 +67,10 @@
     document.getElementById('cardHead').textContent = '';
     const who = document.createElement('b');
     who.textContent = item.user && item.user !== 'test' ? item.user : 'Test';
-    document.getElementById('cardHead').append(who, ` 🔊 ${item.reward}`);
+    const head = document.getElementById('cardHead');
+    head.append(who, ' ');
+    head.insertAdjacentHTML('beforeend', '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>');
+    head.append(` ${item.reward}`);
     const p = document.getElementById('cardText');
     p.textContent = item.text || '';
     p.hidden = !item.text;
@@ -129,7 +133,7 @@
     skipping = false;
     playingId = item.qid || null;
     report();
-    show(`▶ ${item.reward}${item.user ? ' — ' + item.user : ''}`);
+    show(`Playing ${item.reward}${item.user ? ', ' + item.user : ''}`);
     showCard(item);
     const volume = item.volume ?? 1;
     if (item.url && !skipping) {

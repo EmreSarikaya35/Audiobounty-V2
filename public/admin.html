@@ -25,7 +25,7 @@
   .user { background: var(--surface-2); border-radius: 14px; padding: .75rem .9rem; display: grid; grid-template-columns: 2.5rem minmax(0,1fr) auto; gap: .75rem; align-items: center; }
   .user.banned { opacity: .6; }
   .user img { width: 2.5rem; height: 2.5rem; border-radius: 50%; background: var(--fill); object-fit: cover; }
-  .user .title { font-weight: 650; letter-spacing: -.01em; overflow-wrap: anywhere; display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+  .user .title { font-weight: 500; letter-spacing: 0; overflow-wrap: anywhere; display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
   .user .meta { font-size: .8125rem; color: var(--muted); }
   .user .actions { display: flex; gap: .35rem; flex-wrap: wrap; justify-content: flex-end; }
   .quota { display: inline-flex; align-items: center; gap: .4rem; margin-top: .35rem; font-size: .8125rem; color: var(--muted); }
@@ -57,19 +57,25 @@
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-mark" viewBox="0 0 24 24"><rect x="3.5" y="10" width="4" height="10" rx="2"/><rect x="10" y="4" width="4" height="16" rx="2"/><rect x="16.5" y="13" width="4" height="7" rx="2"/></symbol>
+  <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
+  <symbol id="i-light" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-dark" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+</defs></svg>
 <script>try { if (localStorage.getItem('glass') === 'off') document.documentElement.classList.add('no-glass'); } catch {}</script>
 <main>
   <header class="top">
-    <span class="brand" aria-hidden="true">🔊</span>
+    <svg class="i mark" aria-hidden="true"><use href="#i-mark"/></svg>
     <span class="name">AudioBounty Admin</span>
     <a class="btn ghost small" href="/" data-i18n>My dashboard</a>
     <button class="ghost small lang-btn" type="button" aria-label="Language / Dil">TR / EN</button>
     <div class="menu-wrap theme-wrap">
-      <button class="ghost small theme-btn" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false">◐</button>
+      <button class="ghost small theme-btn" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false"><svg class="i" aria-hidden="true"><use href="#i-auto"/></svg></button>
       <div class="menu" role="menu">
-        <button role="menuitemradio" data-pref="auto">◐ <span data-i18n>Automatic</span></button>
-        <button role="menuitemradio" data-pref="light">☀︎ <span data-i18n>Light</span></button>
-        <button role="menuitemradio" data-pref="dark">☾ <span data-i18n>Dark</span></button>
+        <button role="menuitemradio" data-pref="auto"><svg class="i" aria-hidden="true"><use href="#i-auto"/></svg><span data-i18n>Automatic</span></button>
+        <button role="menuitemradio" data-pref="light"><svg class="i" aria-hidden="true"><use href="#i-light"/></svg><span data-i18n>Light</span></button>
+        <button role="menuitemradio" data-pref="dark"><svg class="i" aria-hidden="true"><use href="#i-dark"/></svg><span data-i18n>Dark</span></button>
       </div>
     </div>
   </header>
@@ -357,11 +363,10 @@
   let themePref = 'auto';
   try { themePref = localStorage.getItem('theme') || 'auto'; } catch {}
   const lightQuery = matchMedia('(prefers-color-scheme: light)');
-  const THEME_ICON = { auto: '◐', light: '☀︎', dark: '☾' };
   function syncTheme() {
     document.documentElement.dataset.theme = themePref === 'auto' ? (lightQuery.matches ? 'light' : 'dark') : themePref;
     const btn = document.querySelector('.theme-btn');
-    btn.textContent = THEME_ICON[themePref];
+    btn.innerHTML = `<svg class="i" aria-hidden="true"><use href="#i-${themePref}"/></svg>`;
     btn.setAttribute('aria-label', t('Theme'));
     document.querySelectorAll('[data-pref]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.pref === themePref)));
   }

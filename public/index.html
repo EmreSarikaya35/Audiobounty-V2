@@ -46,33 +46,67 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+<!-- Line icons (lucide shapes), used as <svg class="i"><use href="#i-name"/></svg> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-mark" viewBox="0 0 24 24"><rect x="3.5" y="10" width="4" height="10" rx="2"/><rect x="10" y="4" width="4" height="16" rx="2"/><rect x="16.5" y="13" width="4" height="7" rx="2"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></symbol>
+  <symbol id="i-light" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+  <symbol id="i-dark" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
+  <symbol id="i-muted" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-trim" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22M18 2l4 4-4 4M2 6h1.9c1.5 0 2.9.9 3.6 2.2M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8M18 14l4 4-4 4"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></symbol>
+  <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 14v-3zM11.6 16.8a3 3 0 1 1-5.8-1.6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M11.53 2.3a.53.53 0 0 1 .95 0l2.31 4.68a2.12 2.12 0 0 0 1.6 1.16l5.17.76a.53.53 0 0 1 .29.9l-3.74 3.64a2.12 2.12 0 0 0-.61 1.88l.88 5.14a.53.53 0 0 1-.77.56l-4.62-2.43a2.12 2.12 0 0 0-1.97 0L6.4 21.02a.53.53 0 0 1-.77-.56l.88-5.14a2.12 2.12 0 0 0-.61-1.88L2.16 9.8a.53.53 0 0 1 .29-.9l5.17-.76a2.12 2.12 0 0 0 1.6-1.16z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+</defs></svg>
 <script>try { if (localStorage.getItem('glass') === 'off') document.documentElement.classList.add('no-glass'); } catch {}</script>
 <main>
 
   <!-- Logged out -->
   <div id="landing" hidden>
     <div class="top-right">
-      <span class="wordmark"><span aria-hidden="true">🔊</span> AudioBounty</span>
+      <span class="wordmark"><svg class="i mark" aria-hidden="true"><use href="#i-mark"/></svg>AudioBounty</span>
       <button class="ghost small lang-btn" type="button" aria-label="Language / Dil">TR / EN</button>
       <div class="menu-wrap theme-wrap">
-        <button class="ghost small theme-btn" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false">◐</button>
+        <button class="ghost small theme-btn" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false"><svg class="i" aria-hidden="true"><use href="#i-auto"/></svg></button>
         <div class="menu" role="menu">
-          <button role="menuitemradio" data-pref="auto">◐ <span data-i18n>Automatic</span></button>
-          <button role="menuitemradio" data-pref="light">☀︎ <span data-i18n>Light</span></button>
-          <button role="menuitemradio" data-pref="dark">☾ <span data-i18n>Dark</span></button>
+          <button role="menuitemradio" data-pref="auto"><svg class="i" aria-hidden="true"><use href="#i-auto"/></svg><span data-i18n>Automatic</span></button>
+          <button role="menuitemradio" data-pref="light"><svg class="i" aria-hidden="true"><use href="#i-light"/></svg><span data-i18n>Light</span></button>
+          <button role="menuitemradio" data-pref="dark"><svg class="i" aria-hidden="true"><use href="#i-dark"/></svg><span data-i18n>Dark</span></button>
         </div>
       </div>
     </div>
     <div class="hero">
-      <h1 data-i18n>Let your viewers play sounds<br>on stream with channel points</h1>
-      <p data-i18n>Create a reward, upload a sound, paste the link into OBS. Nothing to download, nothing to configure.</p>
-      <a class="btn primary" href="/auth/login" data-i18n>Log in with Kick</a>
-      <p class="legal-note" data-i18n>By logging in with Kick you accept the <a href="/legal#terms-en">Terms of Service</a> and confirm you have read the <a href="/legal#privacy-en">Privacy Policy</a>.</p>
-    </div>
-    <div class="how">
-      <div><b><i>1</i><span data-i18n>Log in</span></b><span data-i18n>Connect your Kick account. Your password never reaches us.</span></div>
-      <div><b><i>2</i><span data-i18n>Add a sound</span></b><span data-i18n>Pick a reward name, cost and sound. The reward is created on Kick automatically.</span></div>
-      <div><b><i>3</i><span data-i18n>Add to OBS</span></b><span data-i18n>Add your personal link to OBS as a browser source. Done.</span></div>
+      <div class="hero-text">
+        <h1 data-i18n>Let your viewers play sounds on stream with channel points</h1>
+        <p data-i18n>Create a reward, upload a sound, paste the link into OBS. Nothing to download, nothing to configure.</p>
+        <a class="btn primary" href="/auth/login" data-i18n>Log in with Kick</a>
+        <p class="legal-note" data-i18n>By logging in with Kick you accept the <a href="/legal#terms-en">Terms of Service</a> and confirm you have read the <a href="/legal#privacy-en">Privacy Policy</a>.</p>
+        <div class="how">
+          <div><b><i>1</i><span data-i18n>Log in</span></b><span data-i18n>Connect your Kick account. Your password never reaches us.</span></div>
+          <div><b><i>2</i><span data-i18n>Add a sound</span></b><span data-i18n>Pick a reward name, cost and sound. The reward is created on Kick automatically.</span></div>
+          <div><b><i>3</i><span data-i18n>Add to OBS</span></b><span data-i18n>Add your personal link to OBS as a browser source. Done.</span></div>
+        </div>
+      </div>
+      <figure class="stage" aria-hidden="true">
+        <div class="stage-frame">
+          <span class="stage-live">LIVE</span>
+          <div class="cp-card"><b>mert_42</b> <svg class="i" aria-hidden="true"><use href="#i-sound"/></svg> <span data-i18n>Air horn</span><p data-i18n>Hello stream</p></div>
+        </div>
+        <figcaption class="stage-bar">
+          <span class="eq"><i></i><i></i><i></i></span>
+          <span class="stage-src">AudioBounty</span>
+          <span class="stage-meta">mert_42 · 500</span>
+        </figcaption>
+      </figure>
     </div>
   </div>
 
@@ -81,14 +115,14 @@
     <header class="top">
       <img id="avatar" alt="">
       <span class="name" id="userName"></span>
-      <button class="ghost small icon-btn" type="button" id="settingsOpen" data-i18n-label="Settings" data-i18n-title="Settings">⚙︎</button>
+      <button class="ghost small icon-btn" type="button" id="settingsOpen" data-i18n-label="Settings" data-i18n-title="Settings"><svg class="i" aria-hidden="true"><use href="#i-settings"/></svg></button>
       <button class="ghost small lang-btn" type="button" aria-label="Language / Dil">TR / EN</button>
       <div class="menu-wrap theme-wrap">
-        <button class="ghost small theme-btn" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false">◐</button>
+        <button class="ghost small theme-btn" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false"><svg class="i" aria-hidden="true"><use href="#i-auto"/></svg></button>
         <div class="menu" role="menu">
-          <button role="menuitemradio" data-pref="auto">◐ <span data-i18n>Automatic</span></button>
-          <button role="menuitemradio" data-pref="light">☀︎ <span data-i18n>Light</span></button>
-          <button role="menuitemradio" data-pref="dark">☾ <span data-i18n>Dark</span></button>
+          <button role="menuitemradio" data-pref="auto"><svg class="i" aria-hidden="true"><use href="#i-auto"/></svg><span data-i18n>Automatic</span></button>
+          <button role="menuitemradio" data-pref="light"><svg class="i" aria-hidden="true"><use href="#i-light"/></svg><span data-i18n>Light</span></button>
+          <button role="menuitemradio" data-pref="dark"><svg class="i" aria-hidden="true"><use href="#i-dark"/></svg><span data-i18n>Dark</span></button>
         </div>
       </div>
       <a class="btn ghost small" id="adminLink" href="/admin" hidden>Admin</a>
@@ -96,7 +130,7 @@
     </header>
 
     <div id="bannerAnnounce" class="banner info" role="status" hidden>
-      <span aria-hidden="true">📣</span><span id="announceText"></span>
+      <svg class="i" aria-hidden="true"><use href="#i-megaphone"/></svg><span id="announceText"></span>
     </div>
     <div id="bannerViewing" class="banner warn" hidden>
       <span id="viewingText"></span>
@@ -124,7 +158,7 @@
           <button class="primary" id="copyOverlay" data-i18n>Copy OBS link</button>
           <button id="muteBtn" aria-pressed="false"></button>
           <div class="menu-wrap">
-            <button class="icon" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false" data-i18n-label="Live controls">•••</button>
+            <button class="icon" type="button" data-act="menu" aria-haspopup="menu" aria-expanded="false" data-i18n-label="Live controls"><svg class="i" aria-hidden="true"><use href="#i-more"/></svg></button>
             <div class="menu" role="menu">
               <button role="menuitem" id="skipBtn" data-i18n>Skip current sound</button>
               <button role="menuitem" id="clearBtn" data-i18n>Clear queue</button>
@@ -176,7 +210,7 @@
        The server fills in the operator's details and versions the terms by this block's text. -->
   <div id="legalPage" class="legal" hidden>
     <div class="top-right">
-      <a class="wordmark" href="/"><span aria-hidden="true">🔊</span> AudioBounty</a>
+      <a class="wordmark" href="/"><svg class="i mark" aria-hidden="true"><use href="#i-mark"/></svg>AudioBounty</a>
       <button class="ghost small lang-btn" type="button" aria-label="Language / Dil">TR / EN</button>
     </div>
 
@@ -480,7 +514,7 @@
   </div><!-- /legalPage -->
 
   <footer>
-    <span data-i18n>Designed and built by Emre Sarıkaya.</span>
+    <span data-i18n>Designed and built by Emre Sarıkaya</span>
     <nav class="legal-links" aria-label="Legal">
       <a href="/legal#terms-en" data-doc="terms" data-i18n>Terms</a>
       <a href="/legal#privacy-en" data-doc="privacy" data-i18n>Privacy</a>
@@ -511,7 +545,7 @@
     <div class="sheet-grab">
       <span class="grabber" aria-hidden="true"></span>
       <h2 id="addTitle" data-i18n>New reward</h2>
-      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>
     <form class="sheet-body" id="addForm" autocomplete="off">
       <div class="seg" role="group" id="addMode">
@@ -555,7 +589,7 @@
     <div class="sheet-grab">
       <span class="grabber" aria-hidden="true"></span>
       <h2 id="editTitle"></h2>
-      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>
     <div class="sheet-body" id="editBody">
       <div class="group" id="editKickFields">
@@ -608,7 +642,7 @@
     <div class="sheet-grab">
       <span class="grabber" aria-hidden="true"></span>
       <h2 id="settingsTitle" data-i18n>Settings</h2>
-      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>
     <div class="sheet-body">
       <h3 class="group-title" data-i18n>Appearance</h3>
@@ -635,7 +669,7 @@
       <h3 class="group-title" data-i18n>Card on stream</h3>
       <div class="group">
         <div class="card-preview" id="cardPreview" aria-hidden="true">
-          <div class="cp-card"><b>viewer42</b> 🔊 <span data-i18n>Air horn</span><p data-i18n>Hello stream!</p></div>
+          <div class="cp-card"><b>viewer42</b> <svg class="i" aria-hidden="true"><use href="#i-sound"/></svg> <span data-i18n>Air horn</span><p data-i18n>Hello stream</p></div>
         </div>
         <label class="check row-check"><span data-i18n>Show who redeemed it on stream</span><input type="checkbox" class="switch" role="switch" id="card" data-setting="card"></label>
         <div class="inline-field"><span class="field-label" data-i18n>Position</span>
@@ -706,7 +740,7 @@
     <div class="sheet-grab">
       <span class="grabber" aria-hidden="true"></span>
       <h2 id="activityTitle" data-i18n>Recent activity</h2>
-      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>
     <div class="sheet-body"><ul class="log" id="log"></ul></div>
   </div>
@@ -718,7 +752,7 @@
     <div class="sheet-grab">
       <span class="grabber" aria-hidden="true"></span>
       <h2 id="trimTitle" data-i18n>Trim sound</h2>
-      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>
     <div class="sheet-body">
       <p class="hint trim-name" id="trimName"></p>
@@ -734,7 +768,7 @@
         <span><span data-i18n>End</span> <b id="trimEndVal"></b></span>
       </div>
       <div class="row trim-actions">
-        <button class="small" type="button" id="trimPlay" data-i18n>▶ Play selection</button>
+        <button class="small" type="button" id="trimPlay"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg><span data-i18n>Play selection</span></button>
         <button class="small ghost" type="button" id="trimReset" data-i18n>Use whole sound</button>
       </div>
       <button class="primary wide-btn" type="button" id="trimSave" data-i18n>Save</button>
@@ -748,7 +782,7 @@
     <div class="sheet-grab">
       <span class="grabber" aria-hidden="true"></span>
       <h2 id="queueTitle" data-i18n>Queue</h2>
-      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>
     <div class="sheet-body">
       <h3 class="group-title" data-i18n>Now playing</h3>
@@ -769,7 +803,7 @@
     <div class="sheet-grab">
       <span class="grabber" aria-hidden="true"></span>
       <h2 id="statsTitle" data-i18n>Statistics</h2>
-      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>
     <div class="sheet-body">
       <div class="tiles">
@@ -793,7 +827,7 @@
     <div class="sheet-grab">
       <span class="grabber" aria-hidden="true"></span>
       <h2 id="miTitle" data-i18n>Pick a sound from myinstants.com</h2>
-      <button class="icon ghost" type="button" data-close data-i18n-label="Close">✕</button>
+      <button class="icon ghost" type="button" data-close data-i18n-label="Close"><svg class="i" aria-hidden="true"><use href="#i-close"/></svg></button>
     </div>
     <form class="mi-search" id="miSearch">
       <input id="miQuery" type="search" data-i18n-ph="Search, e.g. bruh" aria-label="myinstants.com">
@@ -850,7 +884,7 @@
     "Paste an image or GIF link (Giphy, Tenor, Imgur…). It shows on the card in OBS. Nothing is uploaded.": "Bir resim ya da GIF linki yapıştır (Giphy, Tenor, Imgur…). OBS'teki kartta görünür. Hiçbir şey yüklenmez.",
     "Card on stream": "Yayındaki kart",
     "Air horn": "Korna",
-    "Hello stream!": "Selam yayın!",
+    "Hello stream": "Selam yayın",
     "Position": "Konum",
     "Top": "Üst", "Middle": "Orta", "Bottom": "Alt",
     "Style": "Görünüm",
@@ -869,8 +903,8 @@
     "Start": "Başlangıç",
     "End": "Bitiş",
     "Length": "Süre",
-    "▶ Play selection": "▶ Seçimi çal",
-    "■ Stop": "■ Durdur",
+    "Play selection": "Seçimi çal",
+    "Stop": "Durdur",
     "Use whole sound": "Sesin tamamını kullan",
     "Whole sound": "Sesin tamamı",
     "Queue": "Kuyruk",
@@ -942,7 +976,7 @@
     "Reads messages": "Mesaj okur",
     "Kick dashboard": "Kick paneli",
     "No sound (text-to-speech only)": "Ses yok (sadece metin okuma)",
-    'Let your viewers play sounds<br>on stream with channel points': 'İzleyicilerin kanal puanlarıyla<br>yayında ses çalsın',
+    'Let your viewers play sounds on stream with channel points': 'İzleyicilerin kanal puanlarıyla yayında ses çalsın',
     'Create a reward, upload a sound, paste the link into OBS. Nothing to download, nothing to configure.': 'Bir ödül oluştur, ses ekle, bağlantıyı OBS\'e yapıştır. İndirilecek ya da ayarlanacak bir şey yok.',
     'Log in with Kick': 'Kick ile giriş yap',
     'Log in': 'Giriş yap',
@@ -994,7 +1028,7 @@
     'Every reward already has a sound': 'Tüm ödüllerin zaten sesi var',
     'Attach': 'Bağla',
     'Recent activity': 'Son etkinlik',
-    'Redemptions will show up here.': 'Kullanımlar burada görünecek.',
+    'Redemptions show up here': 'Kullanımlar burada görünür',
     'Settings': 'Ayarlar',
     'Master volume': 'Ana ses',
     'Max sound length (seconds, 0 = no limit)': 'En uzun ses süresi (saniye, 0 = sınırsız)',
@@ -1004,7 +1038,7 @@
     'Banned words for text-to-speech (comma or line separated). Messages with these words are not read.': 'Metin okuma için yasaklı kelimeler (virgül ya da satırla ayır). Bunları içeren mesajlar okunmaz.',
     'Regenerate OBS link': 'OBS bağlantısını yenile',
     'Delete account': 'Hesabı sil',
-    'Designed and built by Emre Sarıkaya.': 'Emre Sarıkaya tarafından tasarlandı ve geliştirildi.',
+    'Designed and built by Emre Sarıkaya': 'Emre Sarıkaya tarafından tasarlandı ve geliştirildi',
     'Search, e.g. bruh': 'Ara, örn. bruh',
     'Search': 'Ara',
     'Trending': 'Trend',
@@ -1023,7 +1057,8 @@
     'Copied': 'Kopyalandı',
     'Use': 'Kullan',
     'No sounds found.': 'Ses bulunamadı.',
-    'No favorites yet. Tap ☆ on a sound to save it.': 'Henüz favori yok. Kaydetmek için bir sesin ☆ simgesine dokun.',
+    'No favorites yet. Tap the star on a sound to save it': 'Henüz favori yok. Kaydetmek için bir sesin yıldızına dokun',
+    'Image': 'Resim',
     'Could not play this sound': 'Bu ses çalınamadı',
     'Test': 'Test',
     'Play in OBS': 'OBS\'te çal',
@@ -1206,6 +1241,7 @@
   }
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const icon = (name) => `<svg class="i" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 
   function readFile(file, maxMb) {
     return new Promise((ok, fail) => {
@@ -1253,11 +1289,10 @@
   const lightQuery = matchMedia('(prefers-color-scheme: light)');
   const effectiveTheme = () => (themePref === 'auto' ? (lightQuery.matches ? 'light' : 'dark') : themePref);
 
-  const THEME_ICON = { auto: '◐', light: '☀︎', dark: '☾' };
   const THEME_NAME = { auto: 'Automatic', light: 'Light', dark: 'Dark' };
   function syncTheme() {
     for (const b of document.querySelectorAll('.theme-btn')) {
-      b.textContent = THEME_ICON[themePref];
+      b.innerHTML = icon(themePref);
       b.setAttribute('aria-label', t(`Theme: ${THEME_NAME[themePref]}`));
       b.title = t('Theme');
     }
@@ -1412,7 +1447,7 @@
       if (!r) return;
       remote = r;
       input.value = '';
-      show('🔊 ' + r.title);
+      show(r.title);
     });
     return {
       reset() { remote = null; input.value = ''; show(''); },
@@ -1431,9 +1466,9 @@
   function showMi(list, emptyMsg) {
     miList = list;
     $('miResults').innerHTML = list.length
-      ? list.map((r, i) => `<li class="enter" style="--i:${Math.min(i, 12)}"><button class="small ghost" type="button" data-mi="play" data-i="${i}" aria-label="${esc(t('Listen here'))}: ${esc(r.title)}">▶</button>
+      ? list.map((r, i) => `<li class="enter" style="--i:${Math.min(i, 12)}"><button class="small ghost" type="button" data-mi="play" data-i="${i}" aria-label="${esc(t('Listen here'))}: ${esc(r.title)}">${icon('play')}</button>
           <span title="${esc(r.title)}">${esc(r.title)}</span>
-          <button class="small ghost ${isFav(r.url) ? 'fav' : ''}" type="button" data-mi="fav" data-i="${i}" aria-pressed="${isFav(r.url)}" aria-label="${esc(t('Favorites'))}">${isFav(r.url) ? '★' : '☆'}</button>
+          <button class="small ghost ${isFav(r.url) ? 'fav' : ''}" type="button" data-mi="fav" data-i="${i}" aria-pressed="${isFav(r.url)}" aria-label="${esc(t('Favorites'))}">${icon('star')}</button>
           <button class="small primary" type="button" data-mi="use" data-i="${i}">${esc(t('Use'))}</button></li>`).join('')
       : `<li class="muted">${esc(t(emptyMsg))}</li>`;
   }
@@ -1442,7 +1477,7 @@
     $('miTrending').classList.toggle('on', tab === 'trending');
     $('miFavs').classList.toggle('on', tab === 'favs');
     movePill($('miFavs').parentElement);
-    if (tab === 'favs') return showMi(me.favorites, 'No favorites yet. Tap ☆ on a sound to save it.');
+    if (tab === 'favs') return showMi(me.favorites, 'No favorites yet. Tap the star on a sound to save it');
     return miLoad('');
   }
 
@@ -1489,7 +1524,6 @@
     if (b.dataset.mi === 'fav') {
       try {
         me = await api('/api/myinstants/favorites', 'POST', { url: r.url, title: r.title, on: !isFav(r.url) });
-        b.textContent = isFav(r.url) ? '★' : '☆';
         b.classList.toggle('fav', isFav(r.url));
         b.setAttribute('aria-pressed', isFav(r.url));
       } catch (err) { toast(err.message, true); }
@@ -1561,13 +1595,14 @@
 
     const on = state.overlays > 0;
     $('obsStatus').className = 'status ' + (on ? 'on' : 'off');
+    $('copyOverlay').classList.toggle('primary', !on); // the setup step leads only until OBS is connected
     if (lastOn !== null && lastOn !== on) replay($('obsStatus'), 'pop');
     if (lastOn === null) $('obsHelp').open = !on; // first visit: show how to set it up
     lastOn = on;
-    $('obsStatus').textContent = t(on ? 'OBS connected' : 'OBS not connected');
+    $('obsStatus').innerHTML = (on ? '<span class="eq"><i></i><i></i><i></i></span>' : '') + esc(t(on ? 'OBS connected' : 'OBS not connected'));
     $('overlayUrl').textContent = state.overlayUrl.replace(state.overlayKey, '•'.repeat(12));
 
-    $('muteBtn').textContent = state.muted ? '🔇 ' + t('Muted') : '🔊 ' + t('Mute');
+    $('muteBtn').innerHTML = icon(state.muted ? 'muted' : 'sound') + esc(t(state.muted ? 'Muted' : 'Mute'));
     $('muteBtn').title = t(state.muted ? 'Sounds are muted – unmute' : 'Mute all sounds');
     $('muteBtn').classList.toggle('muted', state.muted);
     $('muteBtn').setAttribute('aria-pressed', state.muted);
@@ -1596,11 +1631,11 @@
     const logs = state.logs.slice().reverse();
     const latest = logs[0];
     const changed = latest && !firstRender && latest.t > lastLogT;
-    $('lastActivity').innerHTML = latest ? `<time>${timeOf(latest.t)}</time> ${esc(t(latest.msg))}` : esc(t('Redemptions will show up here.'));
+    $('lastActivity').innerHTML = latest ? `<time>${timeOf(latest.t)}</time> ${esc(t(latest.msg))}` : esc(t('Redemptions show up here'));
     if (changed) replay($('lastActivity'), 'enter');
     $('log').innerHTML = logs.length
       ? logs.map((l) => `<li class="${!firstRender && l.t > lastLogT ? 'enter' : ''}"><time>${timeOf(l.t)}</time><span>${esc(t(l.msg))}</span></li>`).join('')
-      : `<li class="muted">${esc(t('Redemptions will show up here.'))}</li>`;
+      : `<li class="muted">${esc(t('Redemptions show up here'))}</li>`;
     lastLogT = Math.max(lastLogT, ...state.logs.map((l) => l.t));
 
     const key = JSON.stringify(state.alerts);
@@ -1630,7 +1665,7 @@
     if (!list.length) {
       $('alertsMore').hidden = true;
       $('alerts').innerHTML = `<div class="empty-state">
-        <div class="empty-icon" aria-hidden="true">🔊</div>
+        <div class="empty-icon">${icon('sound')}</div>
         <h3>${esc(t('No sound rewards yet'))}</h3>
         <p>${esc(t('Add a reward and pick a sound. When a viewer redeems it on Kick, the sound plays in OBS.'))}</p>
         <button class="primary" type="button" data-act="add">${esc(t('Add your first reward'))}</button></div>`;
@@ -1640,16 +1675,16 @@
     moreButton($('alertsMore'), list.length, showAllAlerts);
     $('alerts').innerHTML = shown.map((a, i) => {
       const anim = isNew(a) ? ' enter' : revealFrom >= 0 && i >= revealFrom ? ` enter" style="--i:${i - revealFrom}` : '';
-      const tags = [a.sounds.length > 1 ? '🎲 ' + t(`${a.sounds.length} sounds`) : '', a.image ? '🖼️' : '', a.tts ? '🗣️ ' + t('Reads messages') : '', a.enabled === false ? t('Paused') : '', a.managed ? '' : t('Kick dashboard')].filter(Boolean);
+      const tags = [a.sounds.length > 1 ? icon('shuffle') + esc(t(`${a.sounds.length} sounds`)) : '', a.image ? icon('image') + esc(t('Image')) : '', a.tts ? icon('message') + esc(t('Reads messages')) : '', a.enabled === false ? esc(t('Paused')) : '', a.managed ? '' : t('Kick dashboard')].filter(Boolean);
       return `<article class="reward${a.enabled === false ? ' off' : ''}${anim}" data-id="${a.id}">
         <button class="reward-main" type="button" data-act="edit" aria-label="${esc(t('Edit'))}: ${esc(a.title)}">
           <span class="reward-title"><span class="dot" style="--c:${esc(a.color || 'var(--muted)')}" aria-hidden="true"></span>${esc(a.title)}</span>
           <span class="reward-cost">${esc(a.cost)} ${esc(t('points'))}</span>
-          ${tags.length ? `<span class="reward-tags">${tags.map((x) => `<span class="tag">${esc(x)}</span>`).join('')}</span>` : ''}
+          ${tags.length ? `<span class="reward-tags">${tags.map((x) => `<span class="tag">${x}</span>`).join('')}</span>` : ''}
         </button>
         <div class="reward-actions">
-          <button class="small" type="button" data-act="test">▶ ${esc(t('Test'))}</button>
-          <button class="icon ghost" type="button" data-act="edit" aria-label="${esc(t('Edit'))}">•••</button>
+          <button class="small" type="button" data-act="test">${icon('play')}${esc(t('Test'))}</button>
+          <button class="icon ghost" type="button" data-act="edit" aria-label="${esc(t('Edit'))}">${icon('more')}</button>
         </div>
       </article>`;
     }).join('');
@@ -1751,10 +1786,10 @@
     const sounds = a.sounds;
     $('editSounds').innerHTML = sounds.length
       ? sounds.map((s, i) => `<li data-file="${esc(s.file)}">
-          <button class="icon" type="button" data-s="play" aria-label="${esc(t('Listen here'))}">▶</button>
+          <button class="icon" type="button" data-s="play" aria-label="${esc(t('Listen here'))}">${icon('play')}</button>
           <span class="sound-name"><span>${esc(s.name || `${t('Sound')} ${i + 1}`)}</span><small>${esc(trimLabel(s))}</small></span>
-          <button class="small ghost" type="button" data-s="trim">✂︎ ${esc(t('Trim'))}</button>
-          <button class="icon ghost danger" type="button" data-s="del" aria-label="${esc(t('Remove sound'))}">✕</button></li>`).join('')
+          <button class="small ghost" type="button" data-s="trim">${icon('trim')}${esc(t('Trim'))}</button>
+          <button class="icon ghost danger" type="button" data-s="del" aria-label="${esc(t('Remove sound'))}">${icon('close')}</button></li>`).join('')
       : `<li class="muted">${esc(t('No sound (text-to-speech only)'))}</li>`;
     const poolFull = sounds.length >= me.limits.maxPool;
     $('editFile').disabled = $('editMi').disabled = poolFull;
@@ -1896,7 +1931,7 @@
     trimAudio = null;
     cancelAnimationFrame(trimRaf);
     $('trimHead').hidden = true;
-    $('trimPlay').textContent = t('▶ Play selection');
+    $('trimPlay').innerHTML = icon('play') + esc(t('Play selection'));
   }
   $('trimPlay').addEventListener('click', () => {
     if (trimAudio) return stopTrimPlay();
@@ -1904,7 +1939,7 @@
     const a = Number($('trimStart').value), b = Number($('trimEnd').value);
     const audio = trimAudio = new Audio(mediaUrl({ file: trim.file }));
     audio.currentTime = a;
-    $('trimPlay').textContent = t('■ Stop');
+    $('trimPlay').innerHTML = icon('stop') + esc(t('Stop'));
     $('trimHead').hidden = false;
     const tick = () => {
       if (audio !== trimAudio) return;
@@ -1980,7 +2015,7 @@
     const who = q.user && q.user !== 'test' ? t(`by ${q.user}`) : t('Test');
     return `<li><span class="dot" style="--c:${esc(q.color || 'var(--muted)')}" aria-hidden="true"></span>
       <span class="q-info"><b>${esc(q.reward)}</b><small>${esc(who)}${q.text ? ' · “' + esc(q.text) + '”' : ''}</small></span>
-      ${removable ? `<button class="icon ghost" type="button" data-qid="${esc(q.qid)}" aria-label="${esc(t('Remove from queue'))}">✕</button>` : ''}</li>`;
+      ${removable ? `<button class="icon ghost" type="button" data-qid="${esc(q.qid)}" aria-label="${esc(t('Remove from queue'))}">${icon('close')}</button>` : ''}</li>`;
   }
   function renderQueue(q) {
     const busyNow = Boolean(q.playing || q.items.length);
@@ -2194,7 +2229,7 @@
       toast('Link copied. Now paste it into OBS.');
       const b = $('copyOverlay');
       b.style.minWidth = b.offsetWidth + 'px';
-      b.textContent = '✓ ' + t('Copied');
+      b.innerHTML = icon('check') + esc(t('Copied'));
       replay(b, 'pop');
       clearTimeout(b.t);
       b.t = setTimeout(() => { b.textContent = t('Copy OBS link'); b.style.minWidth = ''; }, 1600);

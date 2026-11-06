@@ -384,14 +384,14 @@ const CHANNEL_HTML = `<!doctype html>
   .item .info { flex: 1; min-width: 0; }
   .item .title { display: flex; align-items: center; font-weight: 650; letter-spacing: -.01em; overflow-wrap: anywhere; }
   .item .meta { color: var(--muted); font-size: .8125rem; }
-  .item .cost { flex: none; font-variant-numeric: tabular-nums; font-weight: 650; color: var(--accent-text); background: var(--accent-soft); padding: .2rem .65rem; border-radius: 99px; font-size: .875rem; }
+  .item .cost { flex: none; font-variant-numeric: tabular-nums; color: var(--muted); font-size: .875rem; }
   .made { display: block; text-align: center; margin-top: 2rem; color: var(--muted); font-size: .8125rem; }
 </style>
 </head>
 <body>
 <main>
   <div class="top-right">
-    <a class="wordmark" href="/" style="color:inherit;text-decoration:none"><span aria-hidden="true">🔊</span> AudioBounty</a>
+    <a class="wordmark" href="/" style="color:inherit;text-decoration:none"><svg class="i mark" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="10" width="4" height="10" rx="2"/><rect x="10" y="4" width="4" height="16" rx="2"/><rect x="16.5" y="13" width="4" height="7" rx="2"/></svg>AudioBounty</a>
   </div>
   <div class="profile reveal">
     <img id="avatar" src="%AVATAR%" alt="" style="--i:0">
@@ -423,12 +423,14 @@ const CHANNEL_HTML = `<!doctype html>
   }
   if (!data.avatar) document.getElementById('avatar').hidden = true;
 
+  const PLAY = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>';
+  const STOP = '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
   const list = document.getElementById('list');
   list.innerHTML = data.rewards.length
     ? data.rewards.map((r, i) => {
         const meta = [r.sounds.length > 1 ? T(\`\${r.sounds.length} sounds, one at random\`, \`\${r.sounds.length} ses, rastgele biri\`) : '', r.tts ? T('Reads your message aloud', 'Mesajını sesli okur') : ''].filter(Boolean).join(' · ');
         return \`<div class="item enter" style="--i:\${Math.min(i, 12)}">
-          <button class="play" type="button" data-i="\${i}" \${r.sounds.length ? '' : 'disabled'} aria-label="\${esc(T('Listen', 'Dinle'))}: \${esc(r.title)}">▶</button>
+          <button class="play" type="button" data-i="\${i}" \${r.sounds.length ? '' : 'disabled'} aria-label="\${esc(T('Listen', 'Dinle'))}: \${esc(r.title)}">\${PLAY}</button>
           <div class="info"><div class="title"><span class="dot" style="--c:\${esc(r.color || 'var(--muted)')}" aria-hidden="true"></span>\${esc(r.title)}</div>\${meta ? \`<div class="meta">\${esc(meta)}</div>\` : ''}</div>
           <span class="cost">\${esc(r.cost)} \${esc(T('points', 'puan'))}</span>
         </div>\`;
@@ -441,7 +443,7 @@ const CHANNEL_HTML = `<!doctype html>
     clearTimeout(timer);
     timer = 0;
     audio?.pause();
-    if (btn) { btn.textContent = '▶'; btn.classList.remove('on'); }
+    if (btn) { btn.innerHTML = PLAY; btn.classList.remove('on'); }
     audio = btn = null;
   }
   list.addEventListener('click', (e) => {
@@ -455,7 +457,7 @@ const CHANNEL_HTML = `<!doctype html>
     audio = new Audio(s.url);
     if (s.start) audio.currentTime = s.start;
     btn = b;
-    b.textContent = '■';
+    b.innerHTML = STOP;
     b.classList.add('on');
     audio.onended = stop;
     audio.onerror = stop;
@@ -1131,7 +1133,7 @@ async function handleApi(req, res, user, p, admin) {
       const reward = await kick.createReward(user, {
         title,
         cost,
-        description: tts ? '🗣️ Your message is read aloud on stream' : '🔊 Plays a sound on stream',
+        description: tts ? 'Your message is read aloud on stream' : 'Plays a sound on stream',
         is_user_input_required: tts,
         should_redemptions_skip_request_queue: true,
         ...(color && { background_color: color }),
